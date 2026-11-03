@@ -29,7 +29,10 @@ public sealed class AudioRingBuffer : IWaveProvider
             // Drop oldest data rather than letting latency grow without bound.
             int excess=count+values.Length-data.Length;
             if(excess>0) { read=(read+excess)%data.Length; count-=excess; Overruns++; }
-            for(int i=0;i<values.Length;i++) { data[write]=values[i]; write=(write+1)%data.Length; }
+            int first=Math.Min(values.Length,data.Length-write);
+            values[..first].CopyTo(data.AsSpan(write));
+            values[first..].CopyTo(data);
+            write=(write+values.Length)%data.Length;
             count+=values.Length;
         }
     }
@@ -37,15 +40,14 @@ public sealed class AudioRingBuffer : IWaveProvider
     {
         lock(sync)
         {
-            Array.Clear(buffer,offset,bytes);
+            var destination=buffer.AsSpan(offset,bytes); destination.Clear();
             if(!primed && count>=prebuffer) primed=true;
             if(!primed) return bytes;
             int requested=bytes/4, available=Math.Min(count,requested);
-            for(int i=0;i<available;i++)
-            {
-                BitConverter.TryWriteBytes(buffer.AsSpan(offset+i*4,4),data[read]);
-                read=(read+1)%data.Length;
-            }
+            int first=Math.Min(available,data.Length-read);
+            System.Runtime.InteropServices.MemoryMarshal.AsBytes(data.AsSpan(read,first)).CopyTo(destination);
+            System.Runtime.InteropServices.MemoryMarshal.AsBytes(data.AsSpan(0,available-first)).CopyTo(destination[(first*4)..]);
+            read=(read+available)%data.Length;
             count-=available;
             if(available<requested && hasReceived) { Underruns++; primed=false; }
             return bytes;

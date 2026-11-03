@@ -17,7 +17,11 @@ jobs:
       - name: Restore locked dependencies
         run: |
           dotnet restore src/VoxLab.App/VoxLab.App.csproj --locked-mode
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           dotnet restore tests/VoxLab.Tests/VoxLab.Tests.csproj --locked-mode
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet restore tests/VoxLab.Windows.Tests/VoxLab.Windows.Tests.csproj --locked-mode
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Test DSP and export canonical presets
         run: |
           dotnet run --project tests/VoxLab.Tests -c Release --no-restore
@@ -25,6 +29,8 @@ jobs:
           dotnet run --project tests/VoxLab.Tests -c Release --no-restore -- --export-presets src/VoxLab.App/Web/presets.json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           git diff --exit-code -- src/VoxLab.App/Web/presets.json
+      - name: Test Windows audio buffers and WAV recording
+        run: dotnet run --project tests/VoxLab.Windows.Tests -c Release --no-restore
       - name: Build portable application
         run: ./build.ps1 -Publish
       - uses: actions/upload-artifact@v4

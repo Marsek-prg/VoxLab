@@ -8,8 +8,11 @@ artifacts/
 *.wav
 *.zip
 !licenses/SoundTouch.Net-2.3.2-source.zip
+!Drivers/VB-CABLE/VBCABLE_Driver_Pack45.zip
 node_modules/
 test-results/
 playwright-report/
+**/Data/
 .DS_Store
-.impeccable/
+.impeccable/*
+!.impeccable/design.json

@@ -35,6 +35,8 @@ public partial class MainWindow : Window
             if(parts.Length==2 && int.TryParse(parts[0],out int width) && int.TryParse(parts[1],out int height)) { Width=Math.Max(MinWidth,width); Height=Math.Max(MinHeight,height); }
         }
         Loaded+=async(_,_)=>await InitializeBrowser();
+        IsVisibleChanged+=async(_,_)=>await UpdateVisualActivity();
+        StateChanged+=async(_,_)=>await UpdateVisualActivity();
         SourceInitialized+=(_,_)=>
         {
             handle=new WindowInteropHelper(this).Handle;
@@ -52,7 +54,9 @@ public partial class MainWindow : Window
         };
         meterTimer.Tick+=(_,_)=>
         {
-            Send("meter",engine.MeterSnapshot());
+            bool visible=IsVisible && WindowState!=WindowState.Minimized;
+            meterTimer.Interval=TimeSpan.FromMilliseconds(engine.IsRunning ? visible ? 60 : 250 : 1000);
+            if(visible && engine.IsRunning) Send("meter",engine.MeterSnapshot());
             if(engine.RecordingError!=null)
             {
                 try { engine.StopRecording(); } catch(Exception ex) { Notify(ex.Message,true); }
@@ -121,6 +125,7 @@ public partial class MainWindow : Window
                 case "ready":
                     ready=true; RefreshDevices(true); SendState(); meterTimer.Start();
                     if(arguments.Contains("--smoke")) await RunSmoke();
+                    else if(arguments.Contains("--performance")) await RunPerformance();
                     break;
                 case "settings":
                     var settings=data.Deserialize<VoiceSettings>(ProfileStore.Json)?.Validate() ?? new();
@@ -153,6 +158,11 @@ public partial class MainWindow : Window
                 case "openRecordings": OpenRecordings(); break;
                 case "github": Process.Start(new ProcessStartInfo("https://github.com/marsek-prg/VoxLab") { UseShellExecute=true }); break;
                 case "driverGuide": Process.Start(new ProcessStartInfo("https://github.com/marsek-prg/VoxLab/blob/main/docs/ROUTING.md") { UseShellExecute=true }); break;
+                case "openCableArchive":
+                    string archive=Path.Combine(AppContext.BaseDirectory,"Drivers","VB-CABLE","VBCABLE_Driver_Pack45.zip");
+                    if(!File.Exists(archive)) throw new FileNotFoundException("Архив VB-CABLE отсутствует. Распакуйте весь portable-пакет VoxLab, включая папку Drivers.");
+                    Process.Start(new ProcessStartInfo("explorer.exe") { Arguments="/select,\""+archive+"\"",UseShellExecute=true });
+                    break;
             }
         }
         catch(Exception ex) { Notify(ex.Message,true); SendState(); }
@@ -217,16 +227,39 @@ public partial class MainWindow : Window
     {
         if(engine.IsRecording) { var path=engine.StopRecording(); Notify("WAV сохранён: "+Path.GetFileName(path)); SendState(); return; }
         if(!engine.IsRunning) throw new InvalidOperationException("Сначала нажмите «Запустить голос».");
-        var dialog=new Microsoft.Win32.SaveFileDialog { Filter="WAV 32-bit float (*.wav)|*.wav",FileName="VoxLab-"+DateTime.Now.ToString("yyyy-MM-dd-HHmmss")+".wav" };
+        string recordings=Path.Combine(AppPaths.Data,"Recordings");Directory.CreateDirectory(recordings);
+        var dialog=new Microsoft.Win32.SaveFileDialog { Filter="WAV 32-bit float (*.wav)|*.wav",InitialDirectory=recordings,FileName="VoxLab-"+DateTime.Now.ToString("yyyy-MM-dd-HHmmss")+".wav" };
         if(dialog.ShowDialog(this)==true) { engine.StartRecording(dialog.FileName); SendState(); }
     }
     private void OpenRecordings()
     {
-        string directory=engine.LastRecordingPath!=null ? Path.GetDirectoryName(engine.LastRecordingPath)! : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        string directory=engine.LastRecordingPath!=null ? Path.GetDirectoryName(engine.LastRecordingPath)! : Path.Combine(AppPaths.Data,"Recordings");
+        Directory.CreateDirectory(directory);
         Process.Start(new ProcessStartInfo("explorer.exe") { Arguments="\""+directory+"\"",UseShellExecute=true });
     }
     private void SaveSoon() { saveTimer.Stop(); saveTimer.Start(); }
-    private void SendState()=>Send("state",new { profile,presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version="0.1.0" });
+    private void SendState()
+    {
+        Send("state",new { profile,presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version="0.1.0" });
+        if(IsVisible && WindowState!=WindowState.Minimized) Send("meter",engine.MeterSnapshot());
+        meterTimer.Interval=TimeSpan.FromMilliseconds(engine.IsRunning ? 60 : 1000);
+    }
+    private async Task UpdateVisualActivity()
+    {
+        if(!ready || closing) return;
+        try
+        {
+            if(IsVisible && WindowState!=WindowState.Minimized) { Web.CoreWebView2.Resume(); SendState(); }
+            else
+            {
+                meterTimer.Interval=TimeSpan.FromMilliseconds(250);
+                await Web.CoreWebView2.TrySuspendAsync();
+                if(!closing && IsVisible && WindowState!=WindowState.Minimized) Web.CoreWebView2.Resume();
+            }
+        }
+        catch(InvalidOperationException) { /* The window may be closing during suspension. */ }
+        catch(COMException) { /* Audio continues even if the renderer cannot suspend. */ }
+    }
     private void Notify(string text,bool error=false)=>Send("notice",new { text,error });
     private void Send(string type,object data)
     {

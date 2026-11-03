@@ -132,4 +132,14 @@ Check("Full DSP completes faster than signal duration",()=>{
     Console.WriteLine($"  3.0 s audio processed in {stopwatch.Elapsed.TotalMilliseconds:F0} ms (offline benchmark)");
     Assert(stopwatch.Elapsed.TotalSeconds<3,"DSP slower than realtime on this machine");
 });
+Check("Steady-state DSP has bounded allocation over 20 seconds",()=>{
+    var processor=new VoiceProcessor(Rate);processor.Apply(Neutral() with { Pitch=7,RobotMix=30,EchoMix=30,ChorusMix=50,ReverbMix=30 });
+    var input=Sine(220).AsSpan(0,480).ToArray();var output=new float[32768];
+    for(int i=0;i<300;i++)processor.Process(input,output);
+    long before=GC.GetAllocatedBytesForCurrentThread();var clock=Stopwatch.StartNew();
+    for(int i=0;i<2000;i++)processor.Process(input,output);
+    clock.Stop();long allocated=GC.GetAllocatedBytesForCurrentThread()-before;
+    Console.WriteLine($"  20.0 s streaming DSP: {clock.Elapsed.TotalMilliseconds:F0} ms, {allocated} allocated bytes");
+    Assert(allocated<262144,"Steady-state allocations exceed 256 KiB");
+});
 Console.WriteLine($"\n{checks-failures}/{checks} checks passed.");Environment.ExitCode=failures>0?1:0;

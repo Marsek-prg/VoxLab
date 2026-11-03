@@ -7,10 +7,11 @@ VoxLab's own code is MIT licensed. Included dependencies retain their respective
 | NAudio, NAudio.Core, NAudio.Wasapi and associated NAudio packages | 2.2.1 | MIT | https://github.com/naudio/NAudio/tree/v2.2.1 |
 | SoundTouch.Net | 2.3.2 | LGPL-2.1-or-later | https://github.com/owoudenberg/soundtouch.net/tree/98e5b8fd2f8efed0ddf7c8f66b435bfb231659dc |
 | Microsoft WebView2 SDK | 1.0.3650.58 | Microsoft WebView2 SDK license | https://github.com/MicrosoftEdge/WebView2Samples |
-| .NET / Windows Desktop Runtime | 10.0.9 | MIT and third-party notices | https://github.com/dotnet/runtime |
+| .NET / Windows Desktop Runtime | 10.0.13 | MIT and third-party notices | https://github.com/dotnet/runtime |
 | Manrope | bundled variable font | SIL Open Font License 1.1 | https://github.com/google/fonts/tree/main/ofl/manrope |
+| VB-CABLE Basic original ZIP | Driver Pack 45 | VB-Audio Donationware terms inside original archive | https://www.vb-cable.com |
 
-Full license texts are in `licenses/`. The self-contained runtime's own license and third-party notices are also included by the .NET publisher.
+Full license texts are in `licenses/`, including the self-contained .NET runtime's license, third-party notices and Windows Desktop Runtime license, copied from their original runtime packages.
 
 ## SoundTouch.Net source and replacement
 
@@ -20,4 +21,10 @@ You may modify and rebuild the library and replace `SoundTouch.Net.dll` in the a
 
 ## Font and artwork
 
-Manrope is bundled locally, without runtime requests to a font service. Geometric icons and the VoxLab application mark are authored as part of this project. There is no bundled model, cloned voice, stock photography, audio cable installer or third-party character artwork.
+Manrope is bundled locally, without runtime requests to a font service. Geometric icons and the VoxLab application mark are authored as part of this project. There is no bundled model, cloned voice, stock photography or third-party character artwork.
+
+## VB-CABLE Basic independent package
+
+VB-CABLE is by VB-Audio / Vincent Burel. Origin: https://www.vb-cable.com. This is **Donationware**; voluntary participation and donations to its author are welcome. The original `VBCABLE_Driver_Pack45.zip` is redistributed AS IS without modification. Its full license is in `readme.txt` inside the archive. VoxLab's MIT license does not apply to this package.
+
+VoxLab does not integrate the driver's installation into its own setup procedure: there is no app installer, and the only related action opens the archive's location. Users independently extract and run the original publisher's installer. See `Drivers/VB-CABLE/README.txt` for provenance, verification and checksum.

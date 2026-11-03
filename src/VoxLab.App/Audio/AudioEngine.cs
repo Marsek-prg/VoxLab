@@ -19,6 +19,8 @@ public sealed class AudioEngine : IDisposable
     private VoiceProcessor? processor;
     private VoiceSettings settings=new(),applied=new();
     private readonly object processingLock=new();
+    private readonly object lifecycleLock=new();
+    private bool disposed;
     private readonly float[] decoded=new float[8192],processed=new float[32768],monitorSamples=new float[32768];
     private readonly float[] scope=new float[128];
     private RecordingSession? recording;
@@ -57,7 +59,16 @@ public sealed class AudioEngine : IDisposable
 
     public void Start(RouteSettings value)
     {
+        lock(lifecycleLock)
+        {
+            ObjectDisposedException.ThrowIf(disposed,this);
+            StartCore(value);
+        }
+    }
+    private void StartCore(RouteSettings value)
+    {
         Stop(); lastError=null; stopping=false;
+        dspLoad=0; Array.Clear(scope);
         route=value with { LatencyMs=value.LatencyMs is 20 or 40 or 80 ? value.LatencyMs : 40 };
         if(string.IsNullOrWhiteSpace(route.InputId) || string.IsNullOrWhiteSpace(route.OutputId))
             throw new InvalidOperationException("Выберите микрофон и выход в разделе «Устройства».");
@@ -209,14 +220,21 @@ public sealed class AudioEngine : IDisposable
     }
     public void Stop()
     {
+        lock(lifecycleLock) StopCore();
+    }
+    private void StopCore()
+    {
         stopping=true; running=false;
-        if(capture!=null) { capture.DataAvailable-=OnData; capture.RecordingStopped-=OnCaptureStopped; capture.StopRecording(); capture.Dispose(); capture=null; }
-        if(output!=null) { output.PlaybackStopped-=OnPlaybackStopped; output.Stop(); output.Dispose(); output=null; }
-        if(monitor!=null) { monitor.PlaybackStopped-=OnPlaybackStopped; monitor.Stop(); monitor.Dispose(); monitor=null; }
+        void Cleanup(Action action) { try { action(); } catch(Exception ex) { lastError="Не удалось освободить аудиоустройство: "+ex.Message; } }
+        if(capture!=null) { capture.DataAvailable-=OnData; capture.RecordingStopped-=OnCaptureStopped; Cleanup(capture.StopRecording); Cleanup(capture.Dispose); capture=null; }
+        if(output!=null) { output.PlaybackStopped-=OnPlaybackStopped; Cleanup(output.Stop); Cleanup(output.Dispose); output=null; }
+        if(monitor!=null) { monitor.PlaybackStopped-=OnPlaybackStopped; Cleanup(monitor.Stop); Cleanup(monitor.Dispose); monitor=null; }
         try { StopRecording(); } catch(Exception ex) { lastError=ex.Message; }
         lock(processingLock) { processor=null; mainBuffer=null; monitorBuffer=null; }
-        inputDevice?.Dispose(); outputDevice?.Dispose(); monitorDevice?.Dispose();
+        if(inputDevice!=null) Cleanup(inputDevice.Dispose);
+        if(outputDevice!=null) Cleanup(outputDevice.Dispose);
+        if(monitorDevice!=null) Cleanup(monitorDevice.Dispose);
         inputDevice=null; outputDevice=null; monitorDevice=null;
     }
-    public void Dispose()=>Stop();
+    public void Dispose() { lock(lifecycleLock) { disposed=true; StopCore(); } }
 }

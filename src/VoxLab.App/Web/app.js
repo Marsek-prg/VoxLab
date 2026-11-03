@@ -181,7 +181,7 @@ function renderRouting(){
   $('#routingLock').hidden=!state.running;
   const virtual=devices.outputs.some(d=>d.isVirtual);const notice=$('#cableNotice');
   notice.classList.toggle('warning',!virtual);
-  notice.textContent=!native?'В предпросмотре нет доступа к устройствам Windows. Откройте VoxLab.exe.':virtual?'Виртуальный аудиовыход обнаружен. Выберите его ниже, затем укажите парный микрофон в целевом приложении.':'Виртуальный аудиокабель не обнаружен. Для Discord и игр установите подписанный виртуальный кабель. Проверка в наушниках и запись WAV доступны без него.';
+  notice.textContent=!native?'В предпросмотре нет доступа к устройствам Windows. Откройте VoxLab.exe.':virtual?'Виртуальный аудиовыход обнаружен. Выберите его ниже, затем укажите парный микрофон в целевом приложении.':'Драйвер виртуального кабеля ещё не обнаружен. Оригинальный архив уже в комплекте; шаги установки ниже. Прослушивание и запись WAV доступны и без драйвера.';
   const input=devices.inputs.find(d=>d.id===route.inputId);const output=devices.outputs.find(d=>d.id===route.outputId);
   $('#routeSummary').textContent=input&&output?shortName(input.name)+' → '+shortName(output.name):'Выберите устройства для начала';
   $('#monitorButton').classList.toggle('active',!!route.monitorEnabled);

@@ -19,13 +19,15 @@ Audio capture performs decoding and DSP on the WASAPI capture callback thread. U
 
 Recording copies PCM to pooled buffers and sends them to a bounded channel read by a background disk writer. Queue exhaustion stops recording with an error rather than blocking the audio callback. WAV headers finalize on stop. Classic WAV recordings are capped before the 4 GiB format limit.
 
-Meters are sent at ~16 Hz. The waveform is actual processed samples; there is no synthetic running animation. UI updates and COM device lifecycle stay outside DSP parameter mutation. Endpoint failures stop capture/playback and surface recovery instructions.
+Meters are sent at ~16 Hz only while audio runs and the window is visible; idle meters update with state changes. Hidden/minimized windows stop meter traffic and request WebView2 suspension. The waveform is actual processed samples; there is no synthetic running animation. UI updates and COM device lifecycle stay outside DSP parameter mutation. Endpoint failures stop capture/playback and surface recovery instructions. A lifecycle lock serializes start/stop/dispose, while a per-data-directory mutex prevents two instances from overwriting the same profile.
 
 ## Persistence and security boundary
 
-Settings are written atomically to `%APPDATA%/VoxLab/profile.json`. Import size and counts are bounded; all numerical DSP parameters are clamped and NaN/Infinity are sanitized. User strings render as text or escaped HTML. The WebView can navigate only to the mapped `https://voxlab.local` origin; new windows and web permissions are denied. A CSP prevents external scripts/resources. Bridge commands are an explicit allowlist; no command executes user-supplied shell text. File destinations are chosen through Windows dialogs.
+Settings are written atomically to `Data/profile.json` beside the executable. The WebView2 user-data folder and default recording directory also live under `Data`, keeping the application portable. Import size and counts are bounded; all numerical DSP parameters are clamped and NaN/Infinity are sanitized. User strings render as text or escaped HTML. The WebView can navigate only to the mapped `https://voxlab.local` origin; new windows and web permissions are denied. A CSP prevents external scripts/resources. Bridge commands are an explicit allowlist; no command executes user-supplied shell text. File destinations are chosen through Windows dialogs.
 
 The app has no telemetry, automatic updater, login, model downloader, microphone autostart or persistent background service. The native host captures audio; browser microphone permission is unnecessary. `--data-dir` isolates automated tests from real user preferences.
+
+The original VB-CABLE ZIP is shipped as an independent, unmodified package. The application only opens its location in Explorer; it never launches its installer, requests elevation for it, or accepts its terms. A Windows driver installation is separate from the portable application and persists beyond its deletion.
 
 ## Limits and future work
 

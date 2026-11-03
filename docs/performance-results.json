@@ -1,0 +1,221 @@
+{
+  "ok": true,
+  "error": null,
+  "logicalProcessors": 12,
+  "phases": [
+    {
+      "name": "visible-idle",
+      "seconds": 10.0008645,
+      "processes": 6,
+      "totalMachineCpuPercent": 0.0911379544571705,
+      "oneCoreCpuPercent": 1.093655453486046,
+      "privateMB": 264.04296875,
+      "summedWorkingSetMB": 439.921875,
+      "metrics": {
+        "running": false,
+        "bypass": false,
+        "muted": false,
+        "recording": false,
+        "recordingSeconds": 0,
+        "recordingError": null,
+        "outputDb": -90,
+        "gainReduction": 0,
+        "gateOpen": false,
+        "clippedSamples": 0,
+        "underruns": 0,
+        "overruns": 0,
+        "dspLoad": 0,
+        "sampleRate": 48000,
+        "estimatedLatencyMs": 0,
+        "error": null
+      }
+    },
+    {
+      "name": "visible-all-effects-and-recording",
+      "seconds": 20.0006355,
+      "processes": 6,
+      "totalMachineCpuPercent": 2.337165319905293,
+      "oneCoreCpuPercent": 28.04598383886352,
+      "privateMB": 265.17578125,
+      "summedWorkingSetMB": 458.16796875,
+      "metrics": {
+        "running": true,
+        "bypass": false,
+        "muted": true,
+        "recording": true,
+        "recordingSeconds": 22.003020833333334,
+        "recordingError": null,
+        "outputDb": -90,
+        "gainReduction": 0,
+        "gateOpen": false,
+        "clippedSamples": 0,
+        "underruns": 0,
+        "overruns": 0,
+        "dspLoad": 3,
+        "sampleRate": 48000,
+        "estimatedLatencyMs": 167,
+        "error": null
+      }
+    },
+    {
+      "name": "tray-all-effects",
+      "seconds": 20.001341,
+      "processes": 6,
+      "totalMachineCpuPercent": 0.24086926638235573,
+      "oneCoreCpuPercent": 2.8904311965882687,
+      "privateMB": 261.875,
+      "summedWorkingSetMB": 457.2421875,
+      "metrics": {
+        "running": true,
+        "bypass": false,
+        "muted": true,
+        "recording": false,
+        "recordingSeconds": 0,
+        "recordingError": null,
+        "outputDb": -90,
+        "gainReduction": 0,
+        "gateOpen": false,
+        "clippedSamples": 0,
+        "underruns": 0,
+        "overruns": 0,
+        "dspLoad": 2.9,
+        "sampleRate": 48000,
+        "estimatedLatencyMs": 154,
+        "error": null
+      }
+    },
+    {
+      "name": "visible-after-16-presets-and-4-restarts",
+      "seconds": 10.0009213,
+      "processes": 6,
+      "totalMachineCpuPercent": 1.210825946605539,
+      "oneCoreCpuPercent": 14.529911359266471,
+      "privateMB": 272.46484375,
+      "summedWorkingSetMB": 470.52734375,
+      "metrics": {
+        "running": true,
+        "bypass": false,
+        "muted": true,
+        "recording": false,
+        "recordingSeconds": 0,
+        "recordingError": null,
+        "outputDb": -90,
+        "gainReduction": 0,
+        "gateOpen": false,
+        "clippedSamples": 0,
+        "underruns": 0,
+        "overruns": 0,
+        "dspLoad": 0.9,
+        "sampleRate": 48000,
+        "estimatedLatencyMs": 110,
+        "error": null
+      }
+    },
+    {
+      "name": "visible-stopped-after-stress",
+      "seconds": 10.0005186,
+      "processes": 6,
+      "totalMachineCpuPercent": 0.16926205540314015,
+      "oneCoreCpuPercent": 2.0311446648376816,
+      "privateMB": 283.86328125,
+      "summedWorkingSetMB": 468.015625,
+      "metrics": {
+        "running": false,
+        "bypass": false,
+        "muted": true,
+        "recording": false,
+        "recordingSeconds": 0,
+        "recordingError": null,
+        "outputDb": -90,
+        "gainReduction": 0,
+        "gateOpen": false,
+        "clippedSamples": 0,
+        "underruns": 0,
+        "overruns": 0,
+        "dspLoad": 1,
+        "sampleRate": 48000,
+        "estimatedLatencyMs": 0,
+        "error": null
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "WAV finalized, >20 seconds, all samples muted",
+      "passed": true
+    },
+    {
+      "name": "Preset studio stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset broadcast stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset feminine stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset deep stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset kid stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset helium stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset clown stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset giant stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset robot stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset android stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset alien stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset ghost stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset cave stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset radio stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset megaphone stays running",
+      "passed": true
+    },
+    {
+      "name": "Preset double stays running",
+      "passed": true
+    },
+    {
+      "name": "Stop releases capture",
+      "passed": true
+    },
+    {
+      "name": "Invalid route rejected without starting audio",
+      "passed": true
+    }
+  ],
+  "runtime": "10.0.13"
+}

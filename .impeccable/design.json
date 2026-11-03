@@ -1,0 +1,488 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-03T23:50:24Z",
+  "title": "Design System: VoxLab",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "tonalRamp": [
+          "oklch(15.00% 0.0038 164.58)",
+          "oklch(26.43% 0.0038 164.58)",
+          "oklch(37.86% 0.0038 164.58)",
+          "oklch(49.29% 0.0038 164.58)",
+          "oklch(60.71% 0.0038 164.58)",
+          "oklch(72.14% 0.0038 164.58)",
+          "oklch(83.57% 0.0038 164.58)",
+          "oklch(95.00% 0.0038 164.58)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Panel Graphite",
+        "tonalRamp": [
+          "oklch(15.00% 0.0059 156.71)",
+          "oklch(26.43% 0.0059 156.71)",
+          "oklch(37.86% 0.0059 156.71)",
+          "oklch(49.29% 0.0059 156.71)",
+          "oklch(60.71% 0.0059 156.71)",
+          "oklch(72.14% 0.0059 156.71)",
+          "oklch(83.57% 0.0059 156.71)",
+          "oklch(95.00% 0.0059 156.71)"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised Graphite",
+        "tonalRamp": [
+          "oklch(15.00% 0.0080 153.35)",
+          "oklch(26.43% 0.0080 153.35)",
+          "oklch(37.86% 0.0080 153.35)",
+          "oklch(49.29% 0.0080 153.35)",
+          "oklch(60.71% 0.0080 153.35)",
+          "oklch(72.14% 0.0080 153.35)",
+          "oklch(83.57% 0.0080 153.35)",
+          "oklch(95.00% 0.0080 153.35)"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover Graphite",
+        "tonalRamp": [
+          "oklch(15.00% 0.0135 145.24)",
+          "oklch(26.43% 0.0135 145.24)",
+          "oklch(37.86% 0.0135 145.24)",
+          "oklch(49.29% 0.0135 145.24)",
+          "oklch(60.71% 0.0135 145.24)",
+          "oklch(72.14% 0.0135 145.24)",
+          "oklch(83.57% 0.0135 145.24)",
+          "oklch(95.00% 0.0135 145.24)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Seam Grey",
+        "tonalRamp": [
+          "oklch(15.00% 0.0140 149.47)",
+          "oklch(26.43% 0.0140 149.47)",
+          "oklch(37.86% 0.0140 149.47)",
+          "oklch(49.29% 0.0140 149.47)",
+          "oklch(60.71% 0.0140 149.47)",
+          "oklch(72.14% 0.0140 149.47)",
+          "oklch(83.57% 0.0140 149.47)",
+          "oklch(95.00% 0.0140 149.47)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Warm Ivory",
+        "tonalRamp": [
+          "oklch(15.00% 0.0098 125.68)",
+          "oklch(26.43% 0.0098 125.68)",
+          "oklch(37.86% 0.0098 125.68)",
+          "oklch(49.29% 0.0098 125.68)",
+          "oklch(60.71% 0.0098 125.68)",
+          "oklch(72.14% 0.0098 125.68)",
+          "oklch(83.57% 0.0098 125.68)",
+          "oklch(95.00% 0.0098 125.68)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Sage Grey",
+        "tonalRamp": [
+          "oklch(15.00% 0.0183 140.02)",
+          "oklch(26.43% 0.0183 140.02)",
+          "oklch(37.86% 0.0183 140.02)",
+          "oklch(49.29% 0.0183 140.02)",
+          "oklch(60.71% 0.0183 140.02)",
+          "oklch(72.14% 0.0183 140.02)",
+          "oklch(83.57% 0.0183 140.02)",
+          "oklch(95.00% 0.0183 140.02)"
+        ]
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Quiet Sage",
+        "tonalRamp": [
+          "oklch(15.00% 0.0297 135.06)",
+          "oklch(26.43% 0.0297 135.06)",
+          "oklch(37.86% 0.0297 135.06)",
+          "oklch(49.29% 0.0297 135.06)",
+          "oklch(60.71% 0.0297 135.06)",
+          "oklch(72.14% 0.0297 135.06)",
+          "oklch(83.57% 0.0297 135.06)",
+          "oklch(95.00% 0.0297 135.06)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Green",
+        "tonalRamp": [
+          "oklch(15.00% 0.1589 126.03)",
+          "oklch(26.43% 0.1589 126.03)",
+          "oklch(37.86% 0.1589 126.03)",
+          "oklch(49.29% 0.1589 126.03)",
+          "oklch(60.71% 0.1589 126.03)",
+          "oklch(72.14% 0.1589 126.03)",
+          "oklch(83.57% 0.1589 126.03)",
+          "oklch(95.00% 0.1589 126.03)"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Green Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0441 129.28)",
+          "oklch(26.43% 0.0441 129.28)",
+          "oklch(37.86% 0.0441 129.28)",
+          "oklch(49.29% 0.0441 129.28)",
+          "oklch(60.71% 0.0441 129.28)",
+          "oklch(72.14% 0.0441 129.28)",
+          "oklch(83.57% 0.0441 129.28)",
+          "oklch(95.00% 0.0441 129.28)"
+        ]
+      },
+      "warning": {
+        "role": "secondary",
+        "displayName": "Warm Peach",
+        "tonalRamp": [
+          "oklch(15.00% 0.0978 63.93)",
+          "oklch(26.43% 0.0978 63.93)",
+          "oklch(37.86% 0.0978 63.93)",
+          "oklch(49.29% 0.0978 63.93)",
+          "oklch(60.71% 0.0978 63.93)",
+          "oklch(72.14% 0.0978 63.93)",
+          "oklch(83.57% 0.0978 63.93)",
+          "oklch(95.00% 0.0978 63.93)"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Soft Salmon",
+        "tonalRamp": [
+          "oklch(15.00% 0.1209 24.45)",
+          "oklch(26.43% 0.1209 24.45)",
+          "oklch(37.86% 0.1209 24.45)",
+          "oklch(49.29% 0.1209 24.45)",
+          "oklch(60.71% 0.1209 24.45)",
+          "oklch(72.14% 0.1209 24.45)",
+          "oklch(83.57% 0.1209 24.45)",
+          "oklch(95.00% 0.1209 24.45)"
+        ]
+      },
+      "selected-surface": {
+        "role": "primary",
+        "displayName": "Selected Moss",
+        "tonalRamp": [
+          "oklch(15.00% 0.0278 134.57)",
+          "oklch(26.43% 0.0278 134.57)",
+          "oklch(37.86% 0.0278 134.57)",
+          "oklch(49.29% 0.0278 134.57)",
+          "oklch(60.71% 0.0278 134.57)",
+          "oklch(72.14% 0.0278 134.57)",
+          "oklch(83.57% 0.0278 134.57)",
+          "oklch(95.00% 0.0278 134.57)"
+        ]
+      },
+      "active-nav": {
+        "role": "primary",
+        "displayName": "Navigation Moss",
+        "tonalRamp": [
+          "oklch(15.00% 0.0338 131.73)",
+          "oklch(26.43% 0.0338 131.73)",
+          "oklch(37.86% 0.0338 131.73)",
+          "oklch(49.29% 0.0338 131.73)",
+          "oklch(60.71% 0.0338 131.73)",
+          "oklch(72.14% 0.0338 131.73)",
+          "oklch(83.57% 0.0338 131.73)",
+          "oklch(95.00% 0.0338 131.73)"
+        ]
+      },
+      "preset-sage": {
+        "role": "secondary",
+        "displayName": "Preset Sage",
+        "tonalRamp": [
+          "oklch(15.00% 0.0721 123.43)",
+          "oklch(26.43% 0.0721 123.43)",
+          "oklch(37.86% 0.0721 123.43)",
+          "oklch(49.29% 0.0721 123.43)",
+          "oklch(60.71% 0.0721 123.43)",
+          "oklch(72.14% 0.0721 123.43)",
+          "oklch(83.57% 0.0721 123.43)",
+          "oklch(95.00% 0.0721 123.43)"
+        ]
+      },
+      "preset-sand": {
+        "role": "secondary",
+        "displayName": "Preset Sand",
+        "tonalRamp": [
+          "oklch(15.00% 0.0660 78.87)",
+          "oklch(26.43% 0.0660 78.87)",
+          "oklch(37.86% 0.0660 78.87)",
+          "oklch(49.29% 0.0660 78.87)",
+          "oklch(60.71% 0.0660 78.87)",
+          "oklch(72.14% 0.0660 78.87)",
+          "oklch(83.57% 0.0660 78.87)",
+          "oklch(95.00% 0.0660 78.87)"
+        ]
+      },
+      "preset-rose": {
+        "role": "secondary",
+        "displayName": "Preset Rose",
+        "tonalRamp": [
+          "oklch(15.00% 0.0521 356.41)",
+          "oklch(26.43% 0.0521 356.41)",
+          "oklch(37.86% 0.0521 356.41)",
+          "oklch(49.29% 0.0521 356.41)",
+          "oklch(60.71% 0.0521 356.41)",
+          "oklch(72.14% 0.0521 356.41)",
+          "oklch(83.57% 0.0521 356.41)",
+          "oklch(95.00% 0.0521 356.41)"
+        ]
+      },
+      "preset-sky": {
+        "role": "secondary",
+        "displayName": "Preset Sky",
+        "tonalRamp": [
+          "oklch(15.00% 0.0453 228.18)",
+          "oklch(26.43% 0.0453 228.18)",
+          "oklch(37.86% 0.0453 228.18)",
+          "oklch(49.29% 0.0453 228.18)",
+          "oklch(60.71% 0.0453 228.18)",
+          "oklch(72.14% 0.0453 228.18)",
+          "oklch(83.57% 0.0453 228.18)",
+          "oklch(95.00% 0.0453 228.18)"
+        ]
+      },
+      "preset-peach": {
+        "role": "secondary",
+        "displayName": "Preset Peach",
+        "tonalRamp": [
+          "oklch(15.00% 0.0739 57.00)",
+          "oklch(26.43% 0.0739 57.00)",
+          "oklch(37.86% 0.0739 57.00)",
+          "oklch(49.29% 0.0739 57.00)",
+          "oklch(60.71% 0.0739 57.00)",
+          "oklch(72.14% 0.0739 57.00)",
+          "oklch(83.57% 0.0739 57.00)",
+          "oklch(95.00% 0.0739 57.00)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Workspace headline",
+        "purpose": "Main headings; responsive sizes are in Layout."
+      },
+      "title": {
+        "displayName": "Section title",
+        "purpose": "Default section heading."
+      },
+      "module-title": {
+        "displayName": "Module title",
+        "purpose": "Compact effect heading."
+      },
+      "body": {
+        "displayName": "Interface body",
+        "purpose": "Global Manrope base."
+      },
+      "action": {
+        "displayName": "Action label",
+        "purpose": "Primary and outlined actions."
+      },
+      "label": {
+        "displayName": "Parameter label",
+        "purpose": "Compact parameter labels."
+      },
+      "filter": {
+        "displayName": "Category label",
+        "purpose": "Category filters."
+      },
+      "readout": {
+        "displayName": "Instrument readout",
+        "purpose": "Parameters and signal metrics."
+      }
+    },
+    "shadows": [
+      {
+        "name": "slider-thumb",
+        "value": "0 1px 3px #0008",
+        "purpose": "Small tactile distinction from track."
+      },
+      {
+        "name": "navigation-tooltip",
+        "value": "0 5px 16px #0005",
+        "purpose": "Temporary compact-navigation label."
+      },
+      {
+        "name": "toast",
+        "value": "0 6px 24px #0005",
+        "purpose": "Transient feedback."
+      },
+      {
+        "name": "dialog",
+        "value": "0 15px 60px #0007",
+        "purpose": "Modal overlay with a #0009 backdrop."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": ".15s ease",
+        "purpose": "Button, card and switch state changes."
+      },
+      {
+        "name": "meter-transition",
+        "value": ".065s linear",
+        "purpose": "Measured signal transforms."
+      },
+      {
+        "name": "toast-enter",
+        "value": ".18s ease-out",
+        "purpose": "Translate from 10 px below to rest."
+      },
+      {
+        "name": "enabled-press",
+        "value": "translateY(1px)",
+        "purpose": "Enabled button press feedback."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}",
+        "purpose": "Disable motion when requested by system preference."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-min",
+        "value": "1500px"
+      },
+      {
+        "name": "compact-max",
+        "value": "1200px"
+      },
+      {
+        "name": "icon-rail-max",
+        "value": "1010px"
+      },
+      {
+        "name": "compact-tooltip-min",
+        "value": "751px"
+      },
+      {
+        "name": "narrow-max",
+        "value": "750px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Shared primary action with the start-voice label.",
+      "html": "<button class=\"ds-primary\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m7 4 14 8-14 8Z\"/></svg><span>Запустить голос</span></button>",
+      "css": ".ds-primary{font-family:Manrope,'Segoe UI',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:10px 16px;border:1px solid transparent;border-radius:10px;font-size:12px;font-weight:650;line-height:1.55;cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease,transform .15s ease}.ds-primary:active:not(:disabled){transform:translateY(1px)}.ds-primary:disabled{opacity:.42;cursor:not-allowed}.ds-primary svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-primary:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none}}.ds-primary{background:var(--accent,#c5f277);color:var(--accent-ink,#1d2810)}.ds-primary:hover{background:#d7ff95}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined import, reset, refresh or setup action.",
+      "html": "<button class=\"ds-secondary\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4\"/></svg><span>Импорт</span></button>",
+      "css": ".ds-secondary{font-family:Manrope,'Segoe UI',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:10px 16px;border:1px solid transparent;border-radius:10px;font-size:12px;font-weight:650;line-height:1.55;cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease,transform .15s ease}.ds-secondary:active:not(:disabled){transform:translateY(1px)}.ds-secondary:disabled{opacity:.42;cursor:not-allowed}.ds-secondary svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-secondary:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-secondary{transition:none}}.ds-secondary{background:transparent;border-color:var(--line,#333a34);color:var(--text,#edf0e9)}.ds-secondary:hover{background:var(--raised,#222623);border-color:#515d50}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Named preset field sharing the device-field surface and focus vocabulary.",
+      "html": "<label class=\"ds-field-label\" for=\"ds-preset-name\">Название пресета</label><input class=\"ds-field\" id=\"ds-preset-name\" type=\"text\" placeholder=\"Мой голос\" autocomplete=\"off\">",
+      "css": ".ds-field-label{font-family:Manrope,'Segoe UI',sans-serif;display:block;color:var(--muted,#b0b9ae);font-size:11px;margin:20px 0 8px}.ds-field{font-family:Manrope,'Segoe UI',sans-serif;background:var(--raised,#222623);border:1px solid var(--line,#333a34);border-radius:8px;color:var(--text,#edf0e9);padding:12px;min-height:42px;width:100%;font-size:12px;caret-color:var(--accent,#c5f277)}.ds-field::placeholder{color:var(--faint,#869280)}.ds-field:disabled{opacity:.42;cursor:not-allowed}.ds-field:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:4px}"
+    },
+    {
+      "name": "Compact navigation",
+      "kind": "nav",
+      "refersTo": "navigation-item",
+      "description": "Active icon rail item with the implemented desktop compact hover/focus label.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Основная навигация\"><button class=\"ds-nav-item\" aria-current=\"page\" aria-label=\"Голоса\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4\"/></svg><span class=\"ds-nav-tooltip\" aria-hidden=\"true\">Голоса</span></button></nav>",
+      "css": ".ds-nav{width:50px;padding:12px;background:var(--bg,#101211);overflow:visible}.ds-nav-item{font-family:Manrope,'Segoe UI',sans-serif;position:relative;display:flex;justify-content:center;align-items:center;width:100%;padding:11px;border:0;border-radius:9px;background:#2b3523;color:var(--accent,#c5f277);cursor:pointer;transition:background .15s ease,color .15s ease,transform .15s ease}.ds-nav-item svg{width:20px;height:20px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-nav-item:active{transform:translateY(1px)}.ds-nav-item:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:4px}.ds-nav-tooltip{display:none}.ds-nav-item:hover .ds-nav-tooltip,.ds-nav-item:focus-visible .ds-nav-tooltip{display:block;position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);z-index:20;background:var(--text,#edf0e9);color:var(--bg,#101211);font-size:12px;font-weight:600;line-height:1.5;padding:8px 12px;border-radius:7px;white-space:nowrap;box-shadow:0 5px 16px #0005;pointer-events:none}@media(prefers-reduced-motion:reduce){.ds-nav-item{transition:none}}"
+    },
+    {
+      "name": "Category chip",
+      "kind": "chip",
+      "refersTo": "filter-chip",
+      "description": "Ivory active filters remain distinct from moss navigation selection.",
+      "html": "<div class=\"ds-chips\" role=\"group\" aria-label=\"Категории голосов\"><button class=\"ds-chip ds-chip-selected\" aria-pressed=\"true\">Все</button><button class=\"ds-chip\" aria-pressed=\"false\">Голоса</button></div>",
+      "css": ".ds-chips{display:flex;gap:5px;flex-wrap:wrap}.ds-chip{font-family:Manrope,'Segoe UI',sans-serif;border:0;background:none;border-radius:7px;padding:7px 10px;color:var(--muted,#b0b9ae);font-size:10px;font-weight:600;min-height:32px;cursor:pointer;transition:background .15s ease,color .15s ease,transform .15s ease}.ds-chip:hover{background:var(--raised,#222623)}.ds-chip.ds-chip-selected{background:var(--text,#edf0e9);color:var(--bg,#101211)}.ds-chip:active{transform:translateY(1px)}.ds-chip:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-chip{transition:none}}"
+    },
+    {
+      "name": "Selected preset card",
+      "kind": "card",
+      "refersTo": "preset-card",
+      "description": "Selected voice with an independent favorite control and check.",
+      "html": "<article class=\"ds-preset\"><button class=\"ds-preset-select\" aria-pressed=\"true\" aria-label=\"Чистый студийный. Ваш голос, чуть собраннее\"><span class=\"ds-preset-symbol\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"8\" y=\"2\" width=\"8\" height=\"13\" rx=\"4\"/><path d=\"M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8\"/></svg></span><span class=\"ds-preset-name\">Чистый студийный</span><span class=\"ds-preset-description\">Ваш голос, чуть собраннее</span></button><button class=\"ds-favorite\" aria-pressed=\"true\" aria-label=\"Удалить из избранного: Чистый студийный\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z\"/></svg></button><span class=\"ds-selected-mark\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m4 12 5 5L20 6\"/></svg></span></article>",
+      "css": ".ds-preset{font-family:Manrope,'Segoe UI',sans-serif;position:relative;border:1px solid var(--accent,#c5f277);border-radius:12px;background:#252e20;min-height:136px;overflow:hidden;color:var(--text,#edf0e9);transition:border-color .15s ease,background .15s ease}.ds-preset-select{font-family:Manrope,'Segoe UI',sans-serif;display:flex;flex-direction:column;text-align:left;width:100%;height:100%;min-height:136px;padding:16px 13px 12px;gap:5px;background:none;border:0;border-radius:11px;color:inherit;cursor:pointer;transition:transform .15s ease}.ds-preset-select:active{transform:translateY(1px)}.ds-preset-select:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:-4px}.ds-preset-symbol{height:47px;display:flex;color:#c5d7a3;margin-bottom:3px}.ds-preset-symbol svg{width:35px;height:35px;fill:none;stroke:currentColor;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round}.ds-preset-name{font-size:12px;font-weight:700;line-height:1.5}.ds-preset-description{font-size:10px;color:var(--muted,#b0b9ae);line-height:1.6;padding-right:12px}.ds-favorite{position:absolute;right:7px;top:7px;z-index:1;padding:7px;background:none;border:0;border-radius:7px;color:var(--accent,#c5f277);cursor:pointer}.ds-favorite svg{width:14px;height:14px;fill:currentColor;stroke:currentColor;stroke-width:1.5}.ds-favorite:hover{background:var(--hover,#2b312b)}.ds-favorite:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:4px}.ds-selected-mark{position:absolute;right:13px;bottom:13px;color:var(--accent,#c5f277)}.ds-selected-mark svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}@media(prefers-reduced-motion:reduce){.ds-preset{transition:none}}@media(prefers-reduced-motion:reduce){.ds-preset-select{transition:none}}"
+    },
+    {
+      "name": "Parameter slider",
+      "kind": "input",
+      "refersTo": "parameter-slider",
+      "description": "Native range with the source label, readout and thumb treatment; static reference value.",
+      "html": "<div class=\"ds-parameter\"><div class=\"ds-parameter-label\"><label for=\"ds-pitch\">Высота голоса</label><output for=\"ds-pitch\">0 st</output></div><input id=\"ds-pitch\" class=\"ds-range\" type=\"range\" min=\"-12\" max=\"12\" step=\"0.1\" value=\"0\" aria-valuetext=\"0 st\"><div class=\"ds-range-labels\"><span>Ниже</span><span>Выше</span></div></div>",
+      "css": ".ds-parameter{font-family:Manrope,'Segoe UI',sans-serif;color:var(--text,#edf0e9)}.ds-parameter-label{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:9px;line-height:1.4}.ds-parameter-label label{font-size:11px;color:var(--muted,#b0b9ae)}.ds-parameter-label output{font:11px Consolas,monospace;color:var(--text,#edf0e9);white-space:nowrap}.ds-range{appearance:none;width:100%;height:4px;border-radius:3px;cursor:pointer;display:block;margin:9px 0;background:var(--line,#333a34);accent-color:var(--accent,#c5f277)}.ds-range::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent,#c5f277);border:2px solid #20281b;box-shadow:0 1px 3px #0008}.ds-range::-webkit-slider-thumb:hover{background:#e6ffb8;transform:scale(1.15)}.ds-range:focus-visible{outline:2px solid var(--accent,#c5f277);outline-offset:8px}.ds-range-labels{display:flex;justify-content:space-between;margin-top:5px;color:var(--faint,#869280);font-size:9px}"
+    },
+    {
+      "name": "Idle transport meter",
+      "kind": "custom",
+      "refersTo": "level-meter",
+      "description": "Actual idle meter state; runtime fill is driven by engine measurements.",
+      "html": "<div class=\"ds-level\"><div class=\"ds-level-heading\"><span>ВХОД</span><output>−∞ dB</output></div><div class=\"ds-meter-track\" aria-hidden=\"true\"><i></i></div></div>",
+      "css": ".ds-level{font-family:Manrope,'Segoe UI',sans-serif;width:164px}.ds-level-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:8px;font-size:9px;letter-spacing:.5px;color:var(--muted,#b0b9ae)}.ds-level-heading output{font:10px Consolas,monospace;letter-spacing:0;white-space:nowrap}.ds-meter-track{height:5px;background:#333b31;border-radius:3px;overflow:hidden}.ds-meter-track i{width:100%;height:100%;display:block;background:var(--accent,#c5f277);transform:scaleX(0);transform-origin:left;transition:transform .065s linear}.ds-meter-track i.ds-overload{background:var(--danger,#ff9b94)}@media(prefers-reduced-motion:reduce){.ds-meter-track i{transition:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Compact Field Recorder",
+    "overview": "VoxLab is a compact field recorder expressed as a Russian-language desktop audio workbench. Graphite surfaces, warm ivory text and signal green keep the live state, editable voice settings and output route readable during long sessions. Authored outline symbols distinguish presets without photos or raster artwork.\n\nThe central workspace scrolls independently of a permanent transport. Voices have a dedicated inspector; the other pages use the full workspace width. This document reconciles the earlier directional seed with the built WebView2 interface. The field-recorder world is an implementation choice, not a claim about additional user brand preferences.",
+    "keyCharacteristics": [
+      "Graphite tonal layers and thin boundaries, with restrained depth.",
+      "Manrope for Cyrillic interface text; Consolas for instrument values.",
+      "Signal green for action and active processing; peach and salmon for exceptional states.",
+      "Persistent transport, visible routes and an inspector tied to the selected preset."
+    ],
+    "rules": [
+      {
+        "name": "Instrument State",
+        "body": "Use signal green for the primary action, active processing and selection. Pair status color with text, an icon, a mark or a control state.",
+        "section": "colors"
+      },
+      {
+        "name": "Readable Instrument",
+        "body": "Keep names and explanatory copy in Manrope. Use Consolas for measurements and compact technical values.",
+        "section": "typography"
+      },
+      {
+        "name": "Tonal Workbench",
+        "body": "Separate persistent regions with tonal surfaces and thin borders. Reserve cast shadows for transient overlays and the small slider thumb.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do retain the visible transport while the workspace or inspector scrolls.",
+      "Do preserve Russian labels and the bundled Manrope font with Cyrillic support.",
+      "Do pair status color with readable text, a mark or the relevant semantic control state.",
+      "Do preserve keyboard focus when preset, category, inspector or rack content is re-rendered.",
+      "Do retain accessible names and the implemented hover/focus tooltip in compact navigation.",
+      "Do display real signal data and explicit paused or preview states."
+    ],
+    "donts": [
+      "Don't turn pastel preset-symbol colors into additional primary action colors.",
+      "Don't apply card shadows, gradients or decorative glow to the flat workbench surfaces.",
+      "Don't replace authored SVG symbols with character glyphs or icon fonts.",
+      "Don't infer an 8 px-only spacing grid or a universal control/panel radius from this build.",
+      "Don't make decorative or simulated waveforms look like live microphone activity."
+    ]
+  }
+}
