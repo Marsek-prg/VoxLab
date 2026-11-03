@@ -1,0 +1,33 @@
+name: Windows build and DSP tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore locked dependencies
+        run: |
+          dotnet restore src/VoxLab.App/VoxLab.App.csproj --locked-mode
+          dotnet restore tests/VoxLab.Tests/VoxLab.Tests.csproj --locked-mode
+      - name: Test DSP and export canonical presets
+        run: |
+          dotnet run --project tests/VoxLab.Tests -c Release --no-restore
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet run --project tests/VoxLab.Tests -c Release --no-restore -- --export-presets src/VoxLab.App/Web/presets.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          git diff --exit-code -- src/VoxLab.App/Web/presets.json
+      - name: Build portable application
+        run: ./build.ps1 -Publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoxLab-win-x64
+          path: artifacts/VoxLab-win-x64/

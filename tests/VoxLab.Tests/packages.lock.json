@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "SoundTouch.Net": {
+        "type": "Transitive",
+        "resolved": "2.3.2",
+        "contentHash": "5A29Pll/n4kEEPvCD5DFot3MJG+VgiaRG6LbNQVkF94VerC1b5iZtJKfdLQXZPFrl3LiVbKm3txKBe5/pbv5rw=="
+      },
+      "voxlab.core": {
+        "type": "Project",
+        "dependencies": {
+          "SoundTouch.Net": "[2.3.2, )"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'">
+  <title>VoxLab — голосовая мастерская</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div id="app" data-page="voices">
+    <header class="topbar">
+      <a href="#voices" class="brand" aria-label="VoxLab — главная"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M5 15v6M12 8v20M19 12v12M26 4v28M33 14v8"/></svg><span>vox<span class="brand-light">lab</span><i>●</i></span></a>
+      <div class="top-caption">Ваша голосовая мастерская</div>
+      <div class="top-actions"><span class="engine-badge" id="engineBadge"><span class="status-dot"></span><span>Микрофон выключен</span></span><button class="icon-button" data-action="tray" title="Свернуть в системный трей" aria-label="Свернуть в системный трей" data-icon="minimize"></button></div>
+    </header>
+    <nav class="sidebar" aria-label="Основная навигация">
+      <div class="nav-main">
+        <button class="nav-item active" data-page="voices" aria-current="page"><span data-icon="wave"></span>Голоса<span class="nav-count">16</span></button>
+        <button class="nav-item" data-page="rack"><span data-icon="sliders"></span>Стойка эффектов</button>
+        <button class="nav-item" data-page="record"><span data-icon="record"></span>Запись</button>
+        <div class="nav-divider"></div>
+        <button class="nav-item" data-action="favorites"><span data-icon="star"></span>Избранное</button>
+        <button class="nav-item" data-action="myPresets"><span data-icon="folder"></span>Мои пресеты<span class="nav-count" id="customCount">0</span></button>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="local-note"><span class="local-icon" data-icon="shield"></span><strong>Только на вашем ПК</strong><p>Обработка без облака.<br>Ваш голос остаётся у вас.</p></div>
+        <button class="nav-item" data-page="routing"><span data-icon="route"></span>Устройства</button>
+        <button class="nav-item" data-page="help"><span data-icon="help"></span>Как это работает</button>
+        <div class="build-line"><span>VOXLAB</span><span>v0.1.0</span></div>
+      </div>
+    </nav>
+    <main class="workspace" id="workspace">
+      <div id="previewBanner" class="notice-bar" hidden>Предпросмотр интерфейса. Для работы с микрофоном запустите VoxLab.exe.</div>
+      <section class="page active" id="page-voices" aria-label="Библиотека голосов">
+        <div class="page-heading"><div><h1>Один микрофон.<br><span>Много характеров.</span></h1><p>Выберите голос. Подстройте под себя. Выходите в эфир.</p></div><button class="button secondary" data-action="importPreset"><span data-icon="download"></span>Импорт</button></div>
+        <section class="signal-panel" aria-label="Живой сигнал">
+          <div class="signal-header"><div class="signal-title"><span class="status-dot" id="signalDot"></span><strong id="signalLabel">Сигнал на паузе</strong></div><div class="signal-metrics"><span id="sampleRate">— кГц</span><span class="metric-separator"></span><span id="latency" title="Оценка по буферам и алгоритму; не измеренная сквозная задержка">~ — мс</span></div></div>
+          <div class="scope-wrap"><canvas id="scope" aria-label="Форма обработанного аудиосигнала"></canvas><span class="scope-hint" id="scopeHint">Нажмите «Запустить голос», когда будете готовы</span><div class="scope-scale"><span>−1</span><span>0</span><span>+1</span></div></div>
+          <div class="signal-footer"><span><span class="tiny-dot"></span>Локальная обработка</span><span id="routeSummary">Выберите устройства для начала</span></div>
+        </section>
+        <div class="library-toolbar"><div class="tabs" id="categories" role="group" aria-label="Категории голосов"></div><label class="search-field"><span data-icon="search"></span><input id="search" placeholder="Найти голос" aria-label="Поиск голосов" autocomplete="off"></label></div>
+        <div class="preset-grid" id="presetGrid"></div>
+        <div class="empty-state" id="emptyPresets" hidden><span data-icon="search"></span><h2>Здесь пока тихо</h2><p id="emptyText">Попробуйте другое название или категорию.</p><button class="button secondary" data-action="clearFilter">Показать все голоса</button></div>
+        <div class="library-footnote"><span data-icon="info"></span><span>Пресеты меняют ваш голос с помощью эффектов. Звучание зависит от исходного тембра.</span></div>
+      </section>
+      <section class="page" id="page-rack" aria-label="Стойка эффектов" hidden>
+        <div class="page-heading"><div><h1>Стойка эффектов</h1><p>Настройте каждый этап. Все изменения слышны сразу.</p></div><button class="button secondary" data-action="resetPreset"><span data-icon="reset"></span>Сбросить к пресету</button></div>
+        <div class="chain" aria-label="Порядок обработки"><span>Вход</span><b>→</b><span>Гейт</span><b>→</b><span>EQ / деэссер</span><b>→</b><span>Компрессор</span><b>→</b><span>Голос / FX</span><b>→</b><span>Лимитер</span><b>→</b><span>Выход</span></div>
+        <div id="rackGrid" class="rack-grid"></div>
+      </section>
+      <section class="page" id="page-routing" aria-label="Аудиоустройства" hidden>
+        <div class="page-heading"><div><h1>Правильный маршрут</h1><p>Из микрофона — в VoxLab. Из VoxLab — куда вам нужно.</p></div><button class="button secondary" data-action="refreshDevices"><span data-icon="reset"></span>Обновить список</button></div>
+        <div class="routing-diagram"><div><span data-icon="mic"></span><strong>Ваш микрофон</strong><small>Исходный голос</small></div><span data-icon="arrow"></span><div class="routing-brand"><span data-icon="wave"></span><strong>VoxLab</strong><small>Голос + эффекты</small></div><span data-icon="arrow"></span><div><span data-icon="route"></span><strong>Аудиокабель</strong><small>Виртуальный микрофон</small></div><span data-icon="arrow"></span><div><span data-icon="headphones"></span><strong>Discord / игра / OBS</strong><small>Обработанный голос</small></div></div>
+        <div id="cableNotice" class="notice-bar"></div>
+        <div class="route-grid">
+          <section class="settings-panel"><h2><span data-icon="mic"></span>Вход</h2><label class="field-label" for="inputDevice">Микрофон</label><select id="inputDevice" data-route="inputId"></select><label class="field-label" for="inputChannel">Каналы микрофона</label><select id="inputChannel" data-route="inputChannel"><option value="-1">Свести все каналы в моно</option><option value="0">Только канал 1 (левый)</option><option value="1">Только канал 2 (правый)</option></select><p class="helper">Если микрофон слышен только с одной стороны, выберите его канал. Разрешение доступа проверяется при запуске.</p><button class="text-button" data-action="microphoneSettings">Доступ к микрофону в Windows <span data-icon="external"></span></button></section>
+          <section class="settings-panel"><h2><span data-icon="route"></span>Выход в приложения</h2><label class="field-label" for="outputDevice">Куда отправлять обработанный звук</label><select id="outputDevice" data-route="outputId"></select><div class="connection-tip"><strong>Для виртуального микрофона</strong><p>Здесь выберите <b>CABLE Input</b>, а в Discord, игре или OBS — <b>CABLE Output</b> в качестве микрофона.</p></div><p class="helper">Для обычной проверки можно выбрать наушники. Не направляйте микрофон на колонки: получится обратная связь.</p></section>
+          <section class="settings-panel"><div class="panel-title"><h2><span data-icon="headphones"></span>Слышать себя</h2><button class="switch" id="monitorToggle" role="switch" aria-checked="false" aria-label="Слышать себя в наушниках" data-action="monitorToggle"></button></div><label class="field-label" for="monitorDevice">Отдельный выход для наушников</label><select id="monitorDevice" data-route="monitorId"></select><div class="parameter"><div class="parameter-label"><label for="monitorVolume">Громкость прослушивания</label><output id="monitorVolumeValue">25%</output></div><input type="range" id="monitorVolume" min="0" max="100" value="25" aria-label="Громкость прослушивания"></div><p class="helper">Меняет только громкость в ваших наушниках. Виртуальный микрофон и WAV-запись получают полный обработанный сигнал.</p></section>
+          <section class="settings-panel"><h2><span data-icon="gauge"></span>Стабильность звука</h2><label class="field-label" for="latencyMode">Буфер устройства</label><select id="latencyMode" data-route="latencyMs"><option value="20">20 мс — быстрее</option><option value="40">40 мс — баланс</option><option value="80">80 мс — стабильнее</option></select><p class="helper">Если слышны щелчки или прерывания, увеличьте буфер. Смена высоты добавляет задержку алгоритма. Общая задержка будет больше указанного буфера.</p><div class="diagnostic-row"><span>Прерывания выхода</span><strong id="underruns">0</strong></div><div class="diagnostic-row"><span>Загрузка DSP</span><strong id="dspLoad">0%</strong></div><button class="text-button" data-action="soundSettings">Звук в настройках Windows <span data-icon="external"></span></button></section>
+        </div><p class="routing-lock" id="routingLock" hidden>Обработка запущена. Остановите её, чтобы изменить маршрут или размер буфера.</p>
+      </section>
+      <section class="page" id="page-record" aria-label="Запись голоса" hidden>
+        <div class="page-heading"><div><h1>Поймайте удачный дубль</h1><p>Записывайте обработанный голос прямо из вашей цепочки эффектов.</p></div><button class="button secondary" data-action="openRecordings"><span data-icon="folder"></span>Открыть папку</button></div>
+        <section class="recorder"><div class="record-orbit"><span data-icon="mic"></span></div><h2 id="recordTitle">Место для вашего голоса</h2><p>Локальный WAV · 32-bit float · моно</p><div class="record-time" id="recordTime">00:00</div><button class="button record-button" data-action="record" id="mainRecordButton"><span data-icon="record"></span>Начать запись</button><p class="helper">Выберите место сохранения при старте.<br>Для завершения нажмите кнопку ещё раз.</p></section>
+        <div class="record-notes"><div><h3>Тот же звук, что на выходе</h3><p>В WAV попадёт выбранный голос со всей обработкой. Mute и обход эффектов действуют и на запись.</p></div><div><h3>Есть пространство для монтажа</h3><p>32-битный float удобен для дальнейшей обработки. Финальный лимитер защищает выход от перегрузки.</p></div><div><h3>Закончите дубль перед сменой устройств</h3><p>Остановка звукового движка завершает и сохраняет текущий WAV. Для нового дубля начните новую запись.</p></div></div>
+      </section>
+      <section class="page" id="page-help" aria-label="Справка" hidden>
+        <div class="page-heading"><div><h1>За минуту до эфира</h1><p>Три шага, чтобы вас услышали по-новому.</p></div><button class="button secondary" data-action="github"><span data-icon="code"></span>Проект на GitHub</button></div>
+        <div class="help-steps"><article><span class="step-index">1</span><h2>Настройте устройства</h2><p>Выберите свой микрофон и выход в разделе «Устройства». Для звонков нужен установленный виртуальный аудиокабель.</p></article><article><span class="step-index">2</span><h2>Выберите характер</h2><p>Нажмите на пресет, запустите голос и проверьте его в наушниках. Подстройте высоту и эффекты под свою речь.</p></article><article><span class="step-index">3</span><h2>Подключитесь к разговору</h2><p>В целевом приложении выберите микрофон аудиокабеля. При необходимости уменьшите его шумоподавление: оно может обрезать эффекты.</p></article></div>
+        <div class="help-columns"><section class="settings-panel"><div class="panel-title"><h2>Горячие клавиши</h2><button class="switch" id="hotkeyToggle" data-action="hotkeys" role="switch" aria-checked="true" aria-label="Глобальные горячие клавиши"></button></div><div class="shortcut"><span>Выключить микрофон</span><kbd>Ctrl + Alt + M</kbd></div><div class="shortcut"><span>Обход эффектов</span><kbd>Ctrl + Alt + B</kbd></div><div class="shortcut"><span>Запуск / остановка</span><kbd>Ctrl + Alt + S</kbd></div><div class="shortcut"><span>Первые восемь пресетов</span><kbd>Ctrl + Alt + 1…8</kbd></div><p class="helper">Работают, даже когда окно свёрнуто. При конфликте с другой программой VoxLab покажет недоступные сочетания.</p><p id="hotkeyWarning" class="warning-text"></p></section><section class="settings-panel"><h2>Если что-то не так</h2><details><summary>Другие не слышат изменённый голос</summary><p>VoxLab должен отправлять звук в CABLE Input, а приложение — слушать CABLE Output. Обычные динамики не создают виртуальный микрофон.</p></details><details><summary>Голос прерывается или трещит</summary><p>Поставьте буфер 80 мс, закройте тяжёлые задачи и проверьте одинаковую частоту 48 кГц в свойствах микрофона и аудиокабеля.</p></details><details><summary>Гейт съедает начало слов</summary><p>Уменьшите порог гейта, например с −48 до −55 dB. Если голос тихий, добавьте немного входного усиления.</p></details><details><summary>Пресет звучит недостаточно естественно</summary><p>Уменьшите сдвиг высоты и подстройте тембр. DSP-пресеты преобразуют ваш голос и не заменяют его нейросетевой моделью другого человека.</p></details></section></div>
+        <div class="notice-bar">VoxLab не устанавливает драйверы автоматически. Поддерживаются уже установленные виртуальные аудиокабели и другие выходы Windows.</div>
+      </section>
+    </main>
+    <aside class="inspector" id="inspector" aria-label="Настройки выбранного голоса">
+      <div class="inspector-header"><h2>Ваш голос</h2><button class="icon-button" data-action="resetPreset" title="Вернуть настройки пресета" aria-label="Вернуть настройки пресета" data-icon="reset"></button></div>
+      <div class="selected-art" id="selectedArt"></div><div class="selected-title"><h2 id="selectedName">Чистый студийный</h2><span class="edited-badge" id="editedBadge" hidden>изменён</span></div><p class="selected-description" id="selectedDescription"></p>
+      <div class="inspector-parameters" id="quickParameters"></div>
+      <button class="all-effects" data-page="rack">Все эффекты и обработка <span data-icon="arrow"></span></button>
+      <div class="inspector-bottom"><button class="button secondary full" data-action="saveDialog"><span data-icon="plus"></span>Сохранить свой пресет</button><button class="text-button" data-action="exportPreset">Экспорт настроек <span data-icon="upload"></span></button></div>
+    </aside>
+    <footer class="transport" aria-label="Управление звуком">
+      <button class="button primary start-button" id="startButton" data-action="start"><span data-icon="play"></span><span>Запустить голос</span></button>
+      <div class="transport-controls"><button class="transport-toggle" id="muteButton" data-action="mute" aria-pressed="false" title="Выключить микрофон · Ctrl+Alt+M"><span data-icon="mic"></span><span>Микрофон</span></button><button class="transport-toggle" id="bypassButton" data-action="bypass" aria-pressed="false" title="Обход эффектов · Ctrl+Alt+B"><span data-icon="power"></span><span>Обход FX</span></button><button class="transport-toggle" id="monitorButton" data-page="routing" title="Настроить прослушивание в наушниках"><span data-icon="headphones"></span><span>Слышать себя</span></button></div>
+      <div class="transport-meters"><div class="level-meter"><div><span>ВХОД</span><output id="inputDb">−∞ dB</output></div><div class="meter-track"><i id="inputMeter"></i></div></div><div class="level-meter"><div><span>ВЫХОД</span><output id="outputDb">−∞ dB</output></div><div class="meter-track"><i id="outputMeter"></i></div></div></div>
+      <button class="record-small" id="footerRecordButton" data-action="record" title="Запись WAV"><span data-icon="record"></span><span id="recordSmallTime">Запись</span></button>
+    </footer>
+  </div>
+  <div class="toast-region" id="toasts" aria-live="polite" aria-atomic="true"></div>
+  <dialog id="saveDialog"><form method="dialog" id="saveForm"><div class="dialog-heading"><h2>Ваш собственный голос</h2><button class="icon-button" value="cancel" formnovalidate aria-label="Закрыть" data-icon="close"></button></div><p>Сохраним все текущие параметры в «Мои пресеты».</p><label for="presetName" class="field-label">Название пресета</label><input id="presetName" type="text" maxlength="48" required placeholder="Например, мой вечерний эфир"><div class="dialog-actions"><button class="button secondary" value="cancel" formnovalidate>Отмена</button><button class="button primary" value="save">Сохранить</button></div></form></dialog>
+</body>
+</html>
