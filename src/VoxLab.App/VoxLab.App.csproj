@@ -18,4 +18,13 @@
     <Content Include="Web\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\Drivers\**\*" Link="Drivers\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- The normal .NET native apphost can resolve the managed app and runtime
+       in a subdirectory. No extra launcher process or single-file extraction. -->
+  <Target Name="CreatePortableEntryPoint" AfterTargets="Publish" Condition="'$(VoxLabPortableRoot)' != ''">
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)"
+                   AppHostDestinationPath="$(VoxLabPortableRoot)/VoxLab.exe"
+                   AppBinaryName="App/VoxLab.dll"
+                   IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"
+                   WindowsGraphicalUserInterface="true" />
+  </Target>
 </Project>

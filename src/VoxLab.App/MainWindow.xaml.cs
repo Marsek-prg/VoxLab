@@ -160,7 +160,7 @@ public partial class MainWindow : Window
                 case "driverGuide": Process.Start(new ProcessStartInfo("https://github.com/marsek-prg/VoxLab/blob/main/docs/ROUTING.md") { UseShellExecute=true }); break;
                 case "openCableArchive":
                     string archive=Path.Combine(AppContext.BaseDirectory,"Drivers","VB-CABLE","VBCABLE_Driver_Pack45.zip");
-                    if(!File.Exists(archive)) throw new FileNotFoundException("Архив VB-CABLE отсутствует. Распакуйте весь portable-пакет VoxLab, включая папку Drivers.");
+                    if(!File.Exists(archive)) throw new FileNotFoundException("Архив VB-CABLE отсутствует. Распакуйте весь portable-пакет VoxLab, включая папку App.");
                     Process.Start(new ProcessStartInfo("explorer.exe") { Arguments="/select,\""+archive+"\"",UseShellExecute=true });
                     break;
             }
@@ -240,7 +240,7 @@ public partial class MainWindow : Window
     private void SaveSoon() { saveTimer.Stop(); saveTimer.Start(); }
     private void SendState()
     {
-        Send("state",new { profile,presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version="0.1.0" });
+        Send("state",new { profile,presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version="0.1.1" });
         if(IsVisible && WindowState!=WindowState.Minimized) Send("meter",engine.MeterSnapshot());
         meterTimer.Interval=TimeSpan.FromMilliseconds(engine.IsRunning ? 60 : 1000);
     }

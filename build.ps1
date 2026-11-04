@@ -13,10 +13,19 @@ if($Test) {
     dotnet run --project tests/VoxLab.Windows.Tests -c Release --no-restore; if($LASTEXITCODE) { throw 'Windows audio tests failed.' }
 }
 if($Publish) {
-    dotnet publish src/VoxLab.App/VoxLab.App.csproj -c Release --self-contained true -o $OutputDirectory
+    if(-not [IO.Path]::IsPathRooted($OutputDirectory)) { $OutputDirectory=Join-Path $PSScriptRoot $OutputDirectory }
+    $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
+    if(Test-Path -LiteralPath (Join-Path $OutputDirectory 'VoxLab.dll')) {
+        throw 'This is an old flat package. Publish to a new folder and copy your Data folder there.'
+    }
+    $applicationDirectory=Join-Path $OutputDirectory 'App'
+    New-Item -ItemType Directory -Path $applicationDirectory -Force | Out-Null
+    dotnet publish src/VoxLab.App/VoxLab.App.csproj -c Release --self-contained true -o $applicationDirectory "-p:VoxLabPortableRoot=$OutputDirectory"
     if($LASTEXITCODE) { throw 'Publish failed.' }
-    Copy-Item -LiteralPath LICENSE,THIRD-PARTY-NOTICES.md,README.md,START-HERE.txt -Destination $OutputDirectory
-    Copy-Item -LiteralPath licenses,docs -Destination $OutputDirectory -Recurse -Force
+    Remove-Item -LiteralPath (Join-Path $applicationDirectory 'VoxLab.exe')
+    Copy-Item -LiteralPath LICENSE,THIRD-PARTY-NOTICES.md,README.md -Destination $applicationDirectory
+    Copy-Item -LiteralPath licenses,docs -Destination $applicationDirectory -Recurse -Force
+    Copy-Item -LiteralPath START-HERE.txt -Destination (Join-Path $OutputDirectory 'Начни здесь.txt')
     Write-Host "Built: $OutputDirectory/VoxLab.exe"
 } else {
     dotnet build src/VoxLab.App/VoxLab.App.csproj -c Release

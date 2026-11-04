@@ -17,7 +17,7 @@ Full license texts are in `licenses/`, including the self-contained .NET runtime
 
 SoundTouch is originally by Olli Parviainen; the C# port is by Olaf Woudenberg. VoxLab uses the unmodified SoundTouch.Net 2.3.2 assembly as a separate dynamically loaded DLL; it is neither merged nor trimmed into the executable. The complete corresponding library source is distributed in `licenses/SoundTouch.Net-2.3.2-source.zip`, including its build files and license. The same source is available at the GitHub commit linked above.
 
-You may modify and rebuild the library and replace `SoundTouch.Net.dll` in the application folder with a compatible build. VoxLab imposes no restriction on reverse engineering for debugging modifications to this LGPL library. See `licenses/SoundTouch-LGPL-2.1.txt` for the full terms. The application source and build scripts are included in the project distribution to permit rebuilding against modified dependencies.
+You may modify and rebuild the library and replace `SoundTouch.Net.dll` in the application folder (`App/SoundTouch.Net.dll` in portable 0.1.1) with a compatible build. VoxLab imposes no restriction on reverse engineering for debugging modifications to this LGPL library. See `licenses/SoundTouch-LGPL-2.1.txt` for the full terms. The application source and build scripts are included in the project distribution to permit rebuilding against modified dependencies.
 
 ## Font and artwork
 

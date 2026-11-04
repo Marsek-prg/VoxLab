@@ -41,12 +41,17 @@ public partial class App : Application
 
 internal static class AppPaths
 {
+    // Packaged apphost lives one level above the managed assembly. In normal
+    // development builds both are together; dotnet-hosted runs use the DLL folder.
+    public static string Root { get; }=Environment.ProcessPath is string executable &&
+        !Path.GetFileName(executable).Equals("dotnet.exe",StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(executable)! : AppContext.BaseDirectory;
     public static string Data { get; }=Resolve();
     public static string Profile=>Path.Combine(Data,"profile.json");
     private static string Resolve()
     {
         var args=Environment.GetCommandLineArgs(); int index=Array.IndexOf(args,"--data-dir");
-        string path=index>=0 && index+1<args.Length ? Path.GetFullPath(args[index+1]) : Path.Combine(AppContext.BaseDirectory,"Data");
+        string path=index>=0 && index+1<args.Length ? Path.GetFullPath(args[index+1]) : Path.Combine(Root,"Data");
         Directory.CreateDirectory(path); return path;
     }
 }

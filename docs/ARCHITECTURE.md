@@ -23,6 +23,8 @@ Meters are sent at ~16 Hz only while audio runs and the window is visible; idle 
 
 ## Persistence and security boundary
 
+Portable 0.1.1 keeps only `VoxLab.exe`, a short readme, `App` and (after first launch) `Data` at the top level. The SDK's `CreateAppHost` task embeds the relative managed assembly path `App/VoxLab.dll` in the normal Windows GUI apphost. Libraries, runtime, Web assets, drivers and notices stay in `App`; there is no extra launcher process or startup extraction. `AppContext.BaseDirectory` points to `App`, while the data root follows `Environment.ProcessPath` for VoxLab.exe. Direct `dotnet` development runs fall back to the assembly directory. Relative command-line paths still resolve against the caller's working directory.
+
 Settings are written atomically to `Data/profile.json` beside the executable. The WebView2 user-data folder and default recording directory also live under `Data`, keeping the application portable. Import size and counts are bounded; all numerical DSP parameters are clamped and NaN/Infinity are sanitized. User strings render as text or escaped HTML. The WebView can navigate only to the mapped `https://voxlab.local` origin; new windows and web permissions are denied. A CSP prevents external scripts/resources. Bridge commands are an explicit allowlist; no command executes user-supplied shell text. File destinations are chosen through Windows dialogs.
 
 The app has no telemetry, automatic updater, login, model downloader, microphone autostart or persistent background service. The native host captures audio; browser microphone permission is unnecessary. `--data-dir` isolates automated tests from real user preferences.
