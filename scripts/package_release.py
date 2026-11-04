@@ -47,7 +47,9 @@ def main():
         raise ValueError('Incomplete clean portable build')
     if any((root / p).is_symlink() for p in paths):
         raise ValueError('Do not package symbolic links')
-    files = [{'path': p, 'sha256': sha(root / p), 'length': (root / p).stat().st_size, 'component': component(p)} for p in paths]
+    # Keep the root quick-start guide in the full portable ZIP only. The 0.2.0
+    # updater does not allow this renamed root path; App/README.md stays managed.
+    files = [{'path': p, 'sha256': sha(root / p), 'length': (root / p).stat().st_size, 'component': component(p)} for p in paths if p != 'README.txt']
     bundles = []
     for name in ('app', 'runtime', 'drivers'):
         entries = [f for f in files if f['component'] == name]

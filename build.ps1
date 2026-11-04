@@ -25,7 +25,7 @@ if($Publish) {
     Remove-Item -LiteralPath (Join-Path $applicationDirectory 'VoxLab.exe')
     Copy-Item -LiteralPath LICENSE,THIRD-PARTY-NOTICES.md,README.md -Destination $applicationDirectory
     Copy-Item -LiteralPath licenses,docs -Destination $applicationDirectory -Recurse -Force
-    Copy-Item -LiteralPath START-HERE.txt -Destination (Join-Path $OutputDirectory 'Начни здесь.txt')
+    Copy-Item -LiteralPath README.txt -Destination (Join-Path $OutputDirectory 'README.txt')
     Write-Host "Built: $OutputDirectory/VoxLab.exe"
 } else {
     dotnet build src/VoxLab.App/VoxLab.App.csproj -c Release
