@@ -47,7 +47,7 @@ public partial class MainWindow
             if(input==null || output==null) throw new InvalidOperationException("No default audio endpoints for performance run.");
             var route=new RouteSettings(input.Id,output.Id);
             engine.Muted=true;
-            engine.Update(new VoiceSettings { Pitch=7,RobotMix=30,Drive=20,ChorusMix=50,EchoMix=30,ReverbMix=30 });
+            engine.Update(new VoiceSettings { Pitch=7,RobotMix=30,Drive=20,ChorusMix=50,EchoMix=30,ReverbMix=30,Radio=true,CrushMix=50,TremoloMix=50,FlangerMix=60 });
             await Task.Run(()=>engine.Start(route)); SendState();
             string wav=Path.Combine(AppPaths.Data,"performance-muted.wav");
             engine.StartRecording(wav);
@@ -72,7 +72,7 @@ public partial class MainWindow
                 if(i%4==3) { engine.Stop(); await Task.Run(()=>engine.Start(route)); }
             }
             engine.Bypass=false;
-            await Measure("visible-after-16-presets-and-4-restarts",10);
+            await Measure($"visible-after-{PresetLibrary.All.Count}-presets-and-{PresetLibrary.All.Count/4}-restarts",10);
             engine.Stop(); SendState();
             await Measure("visible-stopped-after-stress",10);
             Check("Stop releases capture",!engine.IsRunning && !engine.IsRecording);

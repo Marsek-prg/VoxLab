@@ -7,6 +7,7 @@
   <title>VoxLab — голосовая мастерская</title>
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
+  <script src="preferences.js" defer></script>
 </head>
 <body>
   <div id="app" data-page="voices">
@@ -17,7 +18,7 @@
     </header>
     <nav class="sidebar" aria-label="Основная навигация">
       <div class="nav-main">
-        <button class="nav-item active" data-page="voices" aria-current="page"><span data-icon="wave"></span>Голоса<span class="nav-count">16</span></button>
+        <button class="nav-item active" data-page="voices" aria-current="page"><span data-icon="wave"></span>Голоса<span class="nav-count">24</span></button>
         <button class="nav-item" data-page="rack"><span data-icon="sliders"></span>Стойка эффектов</button>
         <button class="nav-item" data-page="record"><span data-icon="record"></span>Запись</button>
         <div class="nav-divider"></div>
@@ -27,8 +28,9 @@
       <div class="sidebar-bottom">
         <div class="local-note"><span class="local-icon" data-icon="shield"></span><strong>Только на вашем ПК</strong><p>Обработка без облака.<br>Ваш голос остаётся у вас.</p></div>
         <button class="nav-item" data-page="routing"><span data-icon="route"></span>Устройства</button>
+        <button class="nav-item" data-page="preferences"><span data-icon="sliders"></span>Настройки</button>
         <button class="nav-item" data-page="help"><span data-icon="help"></span>Как это работает</button>
-        <div class="build-line"><span>VOXLAB</span><span>v0.1.1</span></div>
+        <div class="build-line"><span>VOXLAB</span><span>v0.2.0</span></div>
       </div>
     </nav>
     <main class="workspace" id="workspace">
@@ -75,8 +77,26 @@
       <section class="page" id="page-help" aria-label="Справка" hidden>
         <div class="page-heading"><div><h1>За минуту до эфира</h1><p>Три шага, чтобы вас услышали по-новому.</p></div><button class="button secondary" data-action="github"><span data-icon="code"></span>Проект на GitHub</button></div>
         <div class="help-steps"><article><span class="step-index">1</span><h2>Настройте устройства</h2><p>Выберите свой микрофон и выход в разделе «Устройства». Для звонков нужен установленный виртуальный аудиокабель.</p></article><article><span class="step-index">2</span><h2>Выберите характер</h2><p>Нажмите на пресет, запустите голос и проверьте его в наушниках. Подстройте высоту и эффекты под свою речь.</p></article><article><span class="step-index">3</span><h2>Подключитесь к разговору</h2><p>В целевом приложении выберите микрофон аудиокабеля. При необходимости уменьшите его шумоподавление: оно может обрезать эффекты.</p></article></div>
-        <div class="help-columns"><section class="settings-panel"><div class="panel-title"><h2>Горячие клавиши</h2><button class="switch" id="hotkeyToggle" data-action="hotkeys" role="switch" aria-checked="true" aria-label="Глобальные горячие клавиши"></button></div><div class="shortcut"><span>Выключить микрофон</span><kbd>Ctrl + Alt + M</kbd></div><div class="shortcut"><span>Обход эффектов</span><kbd>Ctrl + Alt + B</kbd></div><div class="shortcut"><span>Запуск / остановка</span><kbd>Ctrl + Alt + S</kbd></div><div class="shortcut"><span>Первые восемь пресетов</span><kbd>Ctrl + Alt + 1…8</kbd></div><p class="helper">Работают, даже когда окно свёрнуто. При конфликте с другой программой VoxLab покажет недоступные сочетания.</p><p id="hotkeyWarning" class="warning-text"></p></section><section class="settings-panel"><h2>Если что-то не так</h2><details><summary>Другие не слышат изменённый голос</summary><p>VoxLab должен отправлять звук в CABLE Input, а приложение — слушать CABLE Output. Обычные динамики не создают виртуальный микрофон.</p></details><details><summary>Голос прерывается или трещит</summary><p>Поставьте буфер 80 мс, закройте тяжёлые задачи и проверьте одинаковую частоту 48 кГц в свойствах микрофона и аудиокабеля.</p></details><details><summary>Гейт съедает начало слов</summary><p>Уменьшите порог гейта, например с −48 до −55 dB. Если голос тихий, добавьте немного входного усиления.</p></details><details><summary>Пресет звучит недостаточно естественно</summary><p>Уменьшите сдвиг высоты и подстройте тембр. DSP-пресеты преобразуют ваш голос и не заменяют его нейросетевой моделью другого человека.</p></details></section></div>
+        <div class="help-columns"><section class="settings-panel"><h2>Управление под рукой</h2><p class="helper">Назначьте свои сочетания для микрофона, записи, пресетов и силы эффекта. Они работают и при свёрнутом окне.</p><button class="button secondary" data-page="preferences">Настроить клавиши и обновления</button></section><section class="settings-panel"><h2>Если что-то не так</h2><details><summary>Другие не слышат изменённый голос</summary><p>VoxLab должен отправлять звук в CABLE Input, а приложение — слушать CABLE Output. Обычные динамики не создают виртуальный микрофон.</p></details><details><summary>Голос прерывается или трещит</summary><p>Поставьте буфер 80 мс, закройте тяжёлые задачи и проверьте одинаковую частоту 48 кГц в свойствах микрофона и аудиокабеля.</p></details><details><summary>Гейт съедает начало слов</summary><p>Уменьшите порог гейта, например с −48 до −55 dB. Если голос тихий, добавьте немного входного усиления.</p></details><details><summary>Пресет звучит недостаточно естественно</summary><p>Уменьшите сдвиг высоты и подстройте тембр. DSP-пресеты преобразуют ваш голос и не заменяют его нейросетевой моделью другого человека.</p></details></section></div>
         <div class="notice-bar">VoxLab portable хранит настройки и кэш в папке Data рядом с VoxLab.exe. Оригинальный архив VB-CABLE находится в App/Drivers; его системный драйвер устанавливается отдельно. Откройте «Устройства», чтобы подключить кабель.</div>
+      </section>
+      <section class="page" id="page-preferences" aria-label="Настройки" hidden>
+        <div class="page-heading"><div><h1>Под ваш ритм</h1><p>Свои сочетания клавиш и обновления в той же portable-папке.</p></div></div>
+        <section class="settings-panel update-panel" aria-labelledby="updateTitle">
+          <div class="panel-title"><h2 id="updateTitle">Обновления VoxLab</h2><span class="version-label">Версия 0.2.0</span></div>
+          <p id="updateMessage" role="status">Проверка по запросу. Настройки, пресеты и записи сохраняются.</p>
+          <p id="updateSize" class="helper"></p><p id="updateResult" class="helper" hidden></p>
+          <div class="preferences-actions"><button class="button secondary" data-action="checkUpdate" id="checkUpdate">Проверить обновления</button><button class="button primary" data-action="downloadUpdate" id="downloadUpdate" hidden>Скачать обновление</button><button class="button primary" data-action="installUpdate" id="installUpdate" hidden>Установить и перезапустить</button><button class="text-button" data-action="releases">Что нового на GitHub <span data-icon="external"></span></button></div>
+          <details><summary>Как это работает</summary><p>VoxLab сравнивает файлы с выпуском на GitHub и скачивает только нужные компоненты: приложение, библиотеки или архив драйвера. Установка заменяет изменённые файлы, сохраняя Data с настройками и записями. Резервные копии находятся в Data/Updates. Драйвер кабеля не устанавливается автоматически.</p></details>
+        </section>
+        <section class="settings-panel hotkey-panel" aria-labelledby="hotkeyTitle">
+          <div class="panel-title"><h2 id="hotkeyTitle">Горячие клавиши</h2><button class="switch" id="hotkeyToggle" data-action="hotkeys" role="switch" aria-checked="true" aria-label="Глобальные горячие клавиши"></button></div>
+          <p class="helper">Выберите действие, нажмите на сочетание и введите своё. Работают и в трее. Ctrl/Alt + буква, цифра, стрелка или Space; либо F-клавиша. Escape отменяет ввод.</p>
+          <p class="helper">Запись с клавиатуры сохраняется сразу в Data/Recordings. «Сила эффекта» меняется шагами по 10%.</p>
+          <div id="hotkeyRows" class="hotkey-rows"></div>
+          <p id="hotkeyError" class="warning-text" role="alert"></p><p id="hotkeyWarning" class="warning-text" role="status"></p>
+          <div class="preferences-actions"><button class="button secondary" id="addHotkey">Добавить сочетание</button><button class="button primary" id="saveHotkeys">Сохранить сочетания</button><button class="text-button" id="resetHotkeys">Вернуть стандартные</button><span id="hotkeyDirty" class="helper" hidden>Есть несохранённые изменения</span></div>
+        </section>
       </section>
     </main>
     <aside class="inspector" id="inspector" aria-label="Настройки выбранного голоса">
@@ -88,7 +108,7 @@
     </aside>
     <footer class="transport" aria-label="Управление звуком">
       <button class="button primary start-button" id="startButton" data-action="start"><span data-icon="play"></span><span>Запустить голос</span></button>
-      <div class="transport-controls"><button class="transport-toggle" id="muteButton" data-action="mute" aria-pressed="false" title="Выключить микрофон · Ctrl+Alt+M"><span data-icon="mic"></span><span>Микрофон</span></button><button class="transport-toggle" id="bypassButton" data-action="bypass" aria-pressed="false" title="Обход эффектов · Ctrl+Alt+B"><span data-icon="power"></span><span>Обход FX</span></button><button class="transport-toggle" id="monitorButton" data-page="routing" title="Настроить прослушивание в наушниках"><span data-icon="headphones"></span><span>Слышать себя</span></button></div>
+      <div class="transport-controls"><button class="transport-toggle" id="muteButton" data-action="mute" aria-pressed="false" title="Выключить микрофон"><span data-icon="mic"></span><span>Микрофон</span></button><button class="transport-toggle" id="bypassButton" data-action="bypass" aria-pressed="false" title="Обход эффектов"><span data-icon="power"></span><span>Обход FX</span></button><button class="transport-toggle" id="monitorButton" data-page="routing" title="Настроить прослушивание в наушниках"><span data-icon="headphones"></span><span>Слышать себя</span></button></div>
       <div class="transport-meters"><div class="level-meter"><div><span>ВХОД</span><output id="inputDb">−∞ dB</output></div><div class="meter-track"><i id="inputMeter"></i></div></div><div class="level-meter"><div><span>ВЫХОД</span><output id="outputDb">−∞ dB</output></div><div class="meter-track"><i id="outputMeter"></i></div></div></div>
       <button class="record-small" id="footerRecordButton" data-action="record" title="Запись WAV"><span data-icon="record"></span><span id="recordSmallTime">Запись</span></button>
     </footer>

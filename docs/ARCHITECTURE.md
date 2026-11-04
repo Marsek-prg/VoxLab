@@ -2,14 +2,14 @@
 
 ## Boundaries
 
-- `VoxLab.Core`: immutable parameter validation, 16 canonical presets, streaming mono DSP. Depends only on SoundTouch.Net.
+- `VoxLab.Core`: immutable parameter validation, 24 canonical presets, streaming mono DSP. Depends only on SoundTouch.Net.
 - `VoxLab.App`: native WPF lifecycle, WASAPI, bounded audio queues, recording, local preferences, hotkeys, tray and a restricted WebView2 bridge.
 - `VoxLab.App/Web`: local interface with no build framework or remote resources. Browser-only mode is explicitly a non-audio preview.
 - `VoxLab.Tests`: executable deterministic DSP tests without an additional testing framework.
 
 ## Signal path
 
-Native endpoint PCM16/24/32 or IEEE float → selected channel / mono downmix → smoothed input gain → high-pass → hysteresis gate → bass/mid/treble & tone EQ → split-band de-esser → RMS soft-knee compressor → SoundTouch pitch (when nonzero) → ring modulation → saturation → optional radio filters → dual delay chorus → echo → Schroeder reverb → smoothed output gain → instantaneous-attack/releasing limiter (0.95 ceiling) → mute → independent output and monitor queues; processed WAV recording taps before monitor gain.
+Native endpoint PCM16/24/32 or IEEE float → selected channel / mono downmix → smoothed input gain → high-pass → hysteresis gate → bass/mid/treble & tone EQ → split-band de-esser → RMS soft-knee compressor → SoundTouch pitch (when nonzero) → ring modulation → saturation → optional cascaded radio band + in-band saturation → sample/bit crusher → tremolo → feedback flanger → dual delay chorus → echo → Schroeder reverb → smoothed output gain → instantaneous-attack/releasing limiter (0.95 ceiling) → mute → independent output and monitor queues; processed WAV recording taps before monitor gain.
 
 The pitch stage changes pitch without changing intended sample duration. Its block output is bursty, so output queues prebuffer. Input and output endpoints have independent clocks. A half-second bounded queue drops oldest data if full instead of accumulating unbounded latency. Underruns zero-fill and re-prime; counters are surfaced to the user. This is bounded recovery, not a precision drift-compensating asynchronous resampler.
 
@@ -36,3 +36,9 @@ The original VB-CABLE ZIP is shipped as an independent, unmodified package. The 
 No model inference, independent formant manipulation, neural noise suppression, VST hosting or kernel audio driver. Nonzero pitch changes and bypass switching can introduce short transients; exact latency varies by endpoint. Quality improvements could include per-preset loudness calibration on speech, click-free crossfades between complete processor instances, an adaptive asynchronous output resampler, and a separately licensed denoising model.
 
 Do not advertise a latency number as a physical measurement until a loopback round-trip measurement has actually been made.
+
+## Updates and configurable shortcuts (0.2.0)
+
+`Hotkeys.cs` validates saved actions, key ranges, modifiers and duplicate chords. `RegisterHotKey` uses MOD_NOREPEAT. Capture temporarily releases OS registrations; blur/Escape restores them. Dispatch maps registration IDs to immutable bindings. JSON profiles without bindings receive the original defaults; an intentionally empty list remains empty.
+
+`UpdateService` reads the public GitHub stable release only on explicit user action. It bounds and validates manifests, safe relative paths, sizes and SHA-256, refuses reparse ancestors, and downloads only required content-addressed components. A verified payload and JSON plan are staged under Data/Updates. The separate Windows PowerShell helper acquires an exclusive installation lock, acknowledges readiness, waits for the originating PID/start time, backs up and atomically replaces changed files, rolling back applied changes on failure. No secrets, elevation, driver installation or background scheduler. Tests cover service requests through an injected transport and actual helper transactions on Windows PowerShell 5.1.

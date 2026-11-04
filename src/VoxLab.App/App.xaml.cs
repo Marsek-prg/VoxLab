@@ -12,6 +12,12 @@ public partial class App : Application
         try
         {
             string directory=AppPaths.Data;
+            string updateLock=Path.Combine(AppPaths.Root,"App",".update.lock");
+            if(File.Exists(updateLock))
+            {
+                try { using var unlocked=File.Open(updateLock,FileMode.Open,FileAccess.Read,FileShare.ReadWrite); }
+                catch(IOException) { System.Windows.MessageBox.Show("VoxLab обновляется. Дождитесь автоматического перезапуска.","VoxLab"); Shutdown(); return; }
+            }
             string probe=Path.Combine(directory,".write-test-"+Guid.NewGuid().ToString("N"));
             using(new FileStream(probe,FileMode.CreateNew,FileAccess.Write,FileShare.None,1,FileOptions.DeleteOnClose)) { }
             string key=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(directory).ToUpperInvariant())));

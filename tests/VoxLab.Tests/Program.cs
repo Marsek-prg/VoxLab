@@ -142,4 +142,45 @@ Check("Steady-state DSP has bounded allocation over 20 seconds",()=>{
     Console.WriteLine($"  20.0 s streaming DSP: {clock.Elapsed.TotalMilliseconds:F0} ms, {allocated} allocated bytes");
     Assert(allocated<262144,"Steady-state allocations exceed 256 KiB");
 });
+Check("Old profiles retain full strength and new numeric inputs are bounded",()=>{
+    var old=JsonSerializer.Deserialize<VoiceSettings>("{\"pitch\":4}",new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+    Assert(old.EffectStrength==100 && old.CrushMix==0 && old.RadioAmount==100,"Old profile changed semantics");
+    var hostile=(old with { EffectStrength=999,CrushBits=-5,CrushRate=double.NaN,TremoloRate=100,FlangerRate=-10 }).Validate();
+    Assert(hostile.EffectStrength==200 && hostile.CrushBits==3 && double.IsFinite(hostile.CrushRate) && hostile.TremoloRate==30 && hostile.FlangerRate==.05,"Unsafe new parameter");
+});
+Check("Zero strength removes character while preserving cleanup and gains",()=>{
+    var source=Neutral() with { EffectStrength=0,Pitch=8,Tone=50,Radio=true,RobotMix=80,Drive=80,CrushMix=100,TremoloMix=100,FlangerMix=100,EchoMix=60,ReverbMix=60,ChorusMix=100 };
+    var effective=source.Effective();
+    Assert(effective.Pitch==0 && effective.RadioAmount==0 && effective.CrushMix==0 && effective.FlangerMix==0 && effective.InputGain==source.InputGain && effective.CompressorEnabled==source.CompressorEnabled,"Strength includes cleanup");
+    Assert(Process(source,Sine(300)).SequenceEqual(Process(Neutral(),Sine(300))),"Zero strength left a character effect");
+});
+Check("Double strength stays bounded for every preset",()=>{
+    foreach(var p in PresetLibrary.All) {
+        var audio=Process(p.Settings with { EffectStrength=200 },Sine(700,1));
+        Assert(audio.All(v=>float.IsFinite(v)&&Math.Abs(v)<=.950001),"Unsafe boosted preset: "+p.Id);
+    }
+});
+Check("Radio is narrow with clear mids and rejects treble",()=>{
+    var radio=Neutral() with { Radio=true,RadioAmount=100 };
+    double mid=Rms(Process(radio,Sine(1300)).Skip(Rate));
+    double low=Rms(Process(radio,Sine(80)).Skip(Rate));
+    double high=Rms(Process(radio,Sine(6500)).Skip(Rate));
+    Assert(mid>.05 && low<mid*.03 && high<mid*.08,$"Bad radio band: low={low}, mid={mid}, high={high}");
+});
+Check("New modulation effects are independent of audio block boundaries",()=>{
+    var fx=Neutral() with { CrushMix=75,CrushBits=5,CrushRate=5500,TremoloMix=90,TremoloRate=11.3,FlangerMix=80,FlangerRate=.37 };
+    var signal=Sine(730,2);var a=Process(fx,signal,chunkSize:137);var b=Process(fx,signal,chunkSize:480);
+    Assert(a.SequenceEqual(b),"Modulation depends on driver block size");
+    Assert(!a.SequenceEqual(Process(Neutral(),signal)),"Effects had no effect");
+});
+Check("All new effects stream with bounded allocation and CPU time",()=>{
+    var processor=new VoiceProcessor(Rate);processor.Apply(Neutral() with { Radio=true,CrushMix=80,TremoloMix=80,FlangerMix=80,Pitch=-5,RobotMix=70,ReverbMix=50,EchoMix=40,ChorusMix=40 });
+    var input=Sine(500).AsSpan(0,480).ToArray();var output=new float[32768];
+    for(int i=0;i<300;i++)processor.Process(input,output);
+    long before=GC.GetAllocatedBytesForCurrentThread();var clock=Stopwatch.StartNew();
+    for(int i=0;i<2000;i++)processor.Process(input,output);
+    clock.Stop();long allocated=GC.GetAllocatedBytesForCurrentThread()-before;
+    Console.WriteLine($"  New FX / 20 s audio: {clock.Elapsed.TotalMilliseconds:F0} ms, {allocated} bytes");
+    Assert(allocated<262144 && clock.Elapsed.TotalSeconds<10,"New FX too costly");
+});
 Console.WriteLine($"\n{checks-failures}/{checks} checks passed.");Environment.ExitCode=failures>0?1:0;

@@ -69,6 +69,10 @@ const native = !!window.chrome?.webview;
 let state = {profile:{settings:{},route:{},customPresets:[],favorites:[],presetId:'studio',hotkeysEnabled:true},presets:[],running:false,bypass:false,muted:false,recording:false};
 let page='voices', category='Все', search='', pendingSettings, busy=false, waveform=Array(128).fill(0), lastRecordingError='';
 const parameters = {
+  effectStrength:['Сила эффекта',0,200,1,'%','Чисто','Сильнее'],radioAmount:['Количество рации',0,100,1,'%'],
+  crushMix:['Цифровой хруст',0,100,1,'%'],crushBits:['Разрядность',3,16,1,'bit'],crushRate:['Частота оцифровки',1500,24000,100,'Hz'],
+  tremoloMix:['Глубина пульсации',0,100,1,'%'],tremoloRate:['Частота пульсации',.5,30,.1,'Hz'],
+  flangerMix:['Количество флэнжера',0,100,1,'%'],flangerRate:['Скорость движения',.05,3,.05,'Hz'],
   pitch:['Высота голоса',-12,12,.1,'st','Ниже','Выше'], tone:['Тембр',-100,100,1,'%','Теплее','Светлее'],
   inputGain:['Входное усиление',-24,24,.5,'dB'],outputGain:['Уровень выхода',-36,12,.5,'dB'],
   highpassHz:['Срез низких частот',20,300,5,'Hz'],bass:['Низкие · 180 Гц',-12,12,.5,'dB'],mid:['Средние · 1,4 кГц',-12,12,.5,'dB'],treble:['Высокие · 3,6 кГц',-12,12,.5,'dB'],
@@ -79,7 +83,7 @@ const parameters = {
   reverbMix:['Реверберация',0,70,1,'%'],chorusMix:['Ширина хора',0,100,1,'%'],drive:['Сатурация',0,100,1,'%']
 };
 const modules=[
-  {title:'Характер голоса',icon:'wave',desc:'Высота и окраска — независимо от скорости речи.',keys:['pitch','tone']},
+  {title:'Характер голоса',icon:'wave',desc:'Высота и окраска — независимо от скорости речи.',keys:['effectStrength','pitch','tone']},
   {title:'Нойзгейт',icon:'filter',toggle:'gateEnabled',desc:'Убирает тихий фон в паузах. Гистерезис 4 dB защищает от дребезга.',keys:['gateThreshold','gateAttackMs','gateHoldMs','gateReleaseMs'],meter:'gate'},
   {title:'Компрессор',icon:'gauge',toggle:'compressorEnabled',desc:'Выравнивает громкость речи. Мягкое колено 6 dB.',keys:['compressorThreshold','compressorRatio','compressorAttackMs','compressorReleaseMs','compressorMakeup'],meter:'compressor'},
   {title:'Эквалайзер',icon:'sliders',desc:'Уберите гул, подчеркните тело и разборчивость.',keys:['highpassHz','bass','mid','treble']},
@@ -87,7 +91,10 @@ const modules=[
   {title:'Робот',icon:'robot',desc:'Кольцевая модуляция для металлических обертонов.',keys:['robotMix','robotFrequency']},
   {title:'Эхо',icon:'wave',desc:'Повторы с управляемой задержкой и обратной связью.',keys:['echoMix','echoDelayMs','echoFeedback']},
   {title:'Пространство',icon:'orbit',desc:'Реверберация комнаты и плавный многослойный хор.',keys:['reverbMix','chorusMix']},
-  {title:'Характер и защита',icon:'radio',desc:'Сатурация и радиофильтр. Лимитер всегда защищает выход.',keys:['drive','inputGain','outputGain'],radio:true,limiter:true}
+  {title:'Цифровой хруст',icon:'cpu',desc:'Биткрашер и снижение частоты для голоса старой приставки.',keys:['crushMix','crushBits','crushRate']},
+  {title:'Тремоло',icon:'gauge',desc:'Ритмически меняет громкость — от лёгкой дрожи до глубоких провалов.',keys:['tremoloMix','tremoloRate']},
+  {title:'Флэнжер',icon:'orbit',desc:'Плавающая короткая задержка с обратной связью для текучего звука.',keys:['flangerMix','flangerRate']},
+  {title:'Характер и защита',icon:'radio',desc:'Сатурация и радиофильтр. Лимитер всегда защищает выход.',keys:['radioAmount','drive','inputGain','outputGain'],radio:true,limiter:true}
 ];
 
 function send(action,data=null){
@@ -153,7 +160,8 @@ function renderInspector(){
   const preset=selectedPreset();if(!preset)return;
   $('#selectedName').textContent=preset.name;$('#selectedDescription').textContent=preset.detail;
   $('#selectedArt').innerHTML=icon(preset.icon);$('#selectedArt').style.color=colors[preset.color]||colors.sage;
-  const quick=['pitch','tone','robotMix','echoMix','reverbMix','outputGain'];
+  const character=state.profile.settings.radio?'radioAmount':(state.profile.settings.crushMix>0?'crushMix':state.profile.settings.tremoloMix>0?'tremoloMix':state.profile.settings.flangerMix>0?'flangerMix':'robotMix');
+  const quick=['effectStrength','pitch','tone',character,'echoMix','reverbMix','outputGain'];
   $('#quickParameters').innerHTML=quick.map(k=>parameterHtml(k,'quick')).join('');
   const old=$('#deletePresetButton');if(old)old.remove();
   if(preset.id.startsWith('user-')){
@@ -164,7 +172,7 @@ function renderInspector(){
 }
 function renderRack(){
   const focus=rememberFocus();
-  $('#rackGrid').innerHTML=modules.map((module,i)=>`<section class="rack-module${module.toggle&&!state.profile.settings[module.toggle]?' disabled':''}" data-module="${module.toggle||''}"><div class="module-heading"><div class="module-title"><span>${icon(module.icon)}</span><h2>${module.title}</h2></div>${module.toggle?`<button class="switch" role="switch" aria-checked="${!!state.profile.settings[module.toggle]}" aria-label="${module.title}" data-toggle="${module.toggle}"></button>`:''}</div><p class="module-description">${module.desc}</p><div class="module-parameters">${module.keys.map(k=>parameterHtml(k,'rack')).join('')}</div>${module.radio?`<div class="module-bottom"><span>Радиофильтр · 350–3200 Гц</span><button class="switch" role="switch" aria-checked="${state.profile.settings.radio}" aria-label="Радиофильтр" data-toggle="radio"></button></div>`:''}${module.meter==='gate'?'<div class="module-bottom"><span>Состояние гейта</span><output id="gateState">—</output></div>':''}${module.meter==='compressor'?'<div class="module-bottom"><span>Сжатие сигнала</span><output id="compression">0 dB</output></div>':''}${module.limiter?'<div class="module-bottom"><span>Потолок лимитера</span><output>−0,45 dBFS</output></div>':''}</section>`).join('');
+  $('#rackGrid').innerHTML=modules.map((module,i)=>`<section class="rack-module${module.toggle&&!state.profile.settings[module.toggle]?' disabled':''}" data-module="${module.toggle||''}"><div class="module-heading"><div class="module-title"><span>${icon(module.icon)}</span><h2>${module.title}</h2></div>${module.toggle?`<button class="switch" role="switch" aria-checked="${!!state.profile.settings[module.toggle]}" aria-label="${module.title}" data-toggle="${module.toggle}"></button>`:''}</div><p class="module-description">${module.desc}</p><div class="module-parameters">${module.keys.map(k=>parameterHtml(k,'rack')).join('')}</div>${module.radio?`<div class="module-bottom"><span>Радиофильтр · 500–2600 Гц</span><button class="switch" role="switch" aria-checked="${state.profile.settings.radio}" aria-label="Радиофильтр" data-toggle="radio"></button></div>`:''}${module.meter==='gate'?'<div class="module-bottom"><span>Состояние гейта</span><output id="gateState">—</output></div>':''}${module.meter==='compressor'?'<div class="module-bottom"><span>Сжатие сигнала</span><output id="compression">0 dB</output></div>':''}${module.limiter?'<div class="module-bottom"><span>Потолок лимитера</span><output>−0,45 dBFS</output></div>':''}</section>`).join('');
   restoreFocus(focus);
 }
 let devices={inputs:[],outputs:[]};
@@ -189,6 +197,7 @@ function renderRouting(){
 function shortName(name){return name.length>29?name.slice(0,27)+'…':name;}
 function renderState(){
   renderGrid();renderInspector();renderRack();renderRouting();renderTransport();
+  if(typeof renderPreferences==='function')renderPreferences();
   $('#hotkeyToggle').setAttribute('aria-checked',String(state.profile.hotkeysEnabled));
   $('#hotkeyWarning').textContent=state.hotkeyFailures?.length?'Заняты другими приложениями: '+state.hotkeyFailures.join(', '):'';
 }
@@ -208,6 +217,7 @@ function renderTransport(){
   if(!state.recording)$('#recordSmallTime').textContent='Запись';
 }
 function showPage(name){
+  if(typeof cancelKeyCapture==='function')cancelKeyCapture();
   if(!$('#page-'+name))return;
   page=name;$('#app').dataset.page=name;
   $$('.page').forEach(el=>{el.hidden=el.id!=='page-'+name;el.classList.toggle('active',!el.hidden);});
@@ -303,6 +313,10 @@ if(native){
   window.chrome.webview.addEventListener('message',event=>{
     const {type,data}=event.data;
     if(type==='state'){state=data;renderState();}
+    else if(type==='hotkeysSaved'){hotkeyDraft=null;renderPreferences();toast('Сочетания сохранены.');}
+    else if(type==='update')renderUpdate(data);
+    else if(type==='updateResult'){$('#updateResult').hidden=false;$('#updateResult').textContent=data.message;}
+    else if(type==='cancelKeyCapture')cancelKeyCapture();
     else if(type==='devices'){devices=data;renderRouting();}
     else if(type==='meter')onMeter(data);
     else if(type==='notice')toast(data.text,data.error);

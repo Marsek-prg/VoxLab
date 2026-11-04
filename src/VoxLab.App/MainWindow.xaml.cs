@@ -22,12 +22,16 @@ public partial class MainWindow : Window
     private readonly string[] arguments;
     private readonly List<int> registeredKeys=[];
     private readonly List<string> hotkeyFailures=[];
+    private readonly Dictionary<int,HotkeyBinding> keyActions=[];
+    private readonly UpdateService updater=new();
+    private bool capturingHotkey;
     private bool ready, closing, busy, faultHandled;
     private IntPtr handle;
 
     public MainWindow(string[] args)
     {
         arguments=args; InitializeComponent();
+        updater.Changed+=status=>Dispatcher.InvokeAsync(()=>Send("update",status));
         int sizeArgument=Array.IndexOf(args,"--size");
         if(sizeArgument>=0 && sizeArgument+1<args.Length)
         {
@@ -37,6 +41,7 @@ public partial class MainWindow : Window
         Loaded+=async(_,_)=>await InitializeBrowser();
         IsVisibleChanged+=async(_,_)=>await UpdateVisualActivity();
         StateChanged+=async(_,_)=>await UpdateVisualActivity();
+        Deactivated+=(_,_)=> { if(capturingHotkey) { capturingHotkey=false; ConfigureHotkeys(); Send("cancelKeyCapture",true); } };
         SourceInitialized+=(_,_)=>
         {
             handle=new WindowInteropHelper(this).Handle;
@@ -48,7 +53,7 @@ public partial class MainWindow : Window
         {
             closing=true; meterTimer.Stop(); saveTimer.Stop();
             foreach(int id in registeredKeys) UnregisterHotKey(handle,id);
-            engine.Dispose(); tray?.Dispose();
+            engine.Dispose(); tray?.Dispose(); updater.Dispose();
             try { ProfileStore.Save(profile); } catch { }
             Web.Dispose();
         };
@@ -123,7 +128,7 @@ public partial class MainWindow : Window
             switch(action)
             {
                 case "ready":
-                    ready=true; RefreshDevices(true); SendState(); meterTimer.Start();
+                    ready=true; RefreshDevices(true); SendState(); Send("update",updater.Status); ShowUpdateResult(); meterTimer.Start();
                     if(arguments.Contains("--smoke")) await RunSmoke();
                     else if(arguments.Contains("--performance")) await RunPerformance();
                     break;
@@ -146,12 +151,27 @@ public partial class MainWindow : Window
                 case "savePreset": SavePreset(data.GetString()); break;
                 case "deletePreset":
                     string? id=data.GetString(); profile.CustomPresets.RemoveAll(x=>x.Id==id); profile.Favorites.RemoveAll(x=>x==id);
+                    profile.HotkeyBindings.RemoveAll(x=>x.Action=="preset" && x.PresetId==id); ConfigureHotkeys();
                     if(profile.PresetId==id) ApplyPreset("studio"); SaveSoon(); SendState(); break;
                 case "favorite":
                     var favorite=data.GetString()!; if(!profile.Favorites.Remove(favorite)) profile.Favorites.Add(favorite); SaveSoon(); SendState(); break;
                 case "exportPreset": ExportPreset(); break;
                 case "importPreset": ImportPreset(); break;
                 case "hotkeys": profile=profile with { HotkeysEnabled=data.GetBoolean() }; ConfigureHotkeys(); SaveSoon(); SendState(); break;
+                case "captureHotkey": capturingHotkey=data.GetBoolean(); ConfigureHotkeys(); break;
+                case "saveHotkeys":
+                    var bindings=data.Deserialize<List<HotkeyBinding>>(ProfileStore.Json) ?? [];
+                    Hotkeys.Validate(bindings,PresetLibrary.All.Concat(profile.CustomPresets).Select(p=>p.Id));
+                    profile=profile with { HotkeyBindings=bindings }; capturingHotkey=false; ConfigureHotkeys(); SaveSoon(); SendState(); Send("hotkeysSaved",true); break;
+                case "resetHotkeys":
+                    profile=profile with { HotkeyBindings=Hotkeys.Defaults() }; capturingHotkey=false; ConfigureHotkeys(); SaveSoon(); SendState(); Send("hotkeysSaved",true); break;
+                case "checkUpdate": await updater.CheckAsync(AppPaths.Root); break;
+                case "downloadUpdate": await updater.PrepareAsync(AppPaths.Root,AppPaths.Data); break;
+                case "installUpdate":
+                    if(engine.IsRecording || busy) throw new InvalidOperationException("Завершите запись и дождитесь запуска звука перед обновлением.");
+                    ProfileStore.Save(profile); engine.Stop(); SendState();
+                    await updater.LaunchInstallerAsync(); Close(); break;
+                case "releases": Process.Start(new ProcessStartInfo("https://github.com/Marsek-prg/VoxLab/releases") { UseShellExecute=true }); break;
                 case "tray": Hide(); break;
                 case "soundSettings": Process.Start(new ProcessStartInfo("ms-settings:sound") { UseShellExecute=true }); break;
                 case "microphoneSettings": Process.Start(new ProcessStartInfo("ms-settings:privacy-microphone") { UseShellExecute=true }); break;
@@ -223,11 +243,12 @@ public partial class MainWindow : Window
         preset=preset with { Id="user-"+Guid.NewGuid().ToString("N"),Name=preset.Name[..Math.Min(48,preset.Name.Length)],Category="Мои",Color="sage",Icon="sliders",Description="Импортированный пресет",Detail="Настройки импортированы из файла.",Settings=preset.Settings.Validate() };
         profile.CustomPresets.Add(preset); ApplyPreset(preset.Id); Notify("Пресет импортирован.");
     }
-    private void ToggleRecording()
+    private void ToggleRecording(bool quick=false)
     {
         if(engine.IsRecording) { var path=engine.StopRecording(); Notify("WAV сохранён: "+Path.GetFileName(path)); SendState(); return; }
         if(!engine.IsRunning) throw new InvalidOperationException("Сначала нажмите «Запустить голос».");
         string recordings=Path.Combine(AppPaths.Data,"Recordings");Directory.CreateDirectory(recordings);
+        if(quick) { engine.StartRecording(Path.Combine(recordings,"VoxLab-"+DateTime.Now.ToString("yyyy-MM-dd-HHmmss-fff")+".wav")); SendState(); Notify("Запись началась. Повторное нажатие сохранит WAV в Data/Recordings."); return; }
         var dialog=new Microsoft.Win32.SaveFileDialog { Filter="WAV 32-bit float (*.wav)|*.wav",InitialDirectory=recordings,FileName="VoxLab-"+DateTime.Now.ToString("yyyy-MM-dd-HHmmss")+".wav" };
         if(dialog.ShowDialog(this)==true) { engine.StartRecording(dialog.FileName); SendState(); }
     }
@@ -240,7 +261,7 @@ public partial class MainWindow : Window
     private void SaveSoon() { saveTimer.Stop(); saveTimer.Start(); }
     private void SendState()
     {
-        Send("state",new { profile,presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version="0.1.1" });
+        Send("state",new { profile,presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version=UpdateService.CurrentVersion });
         if(IsVisible && WindowState!=WindowState.Minimized) Send("meter",engine.MeterSnapshot());
         meterTimer.Interval=TimeSpan.FromMilliseconds(engine.IsRunning ? 60 : 1000);
     }
@@ -268,22 +289,57 @@ public partial class MainWindow : Window
     private void ConfigureHotkeys()
     {
         foreach(int id in registeredKeys) UnregisterHotKey(handle,id);
-        registeredKeys.Clear(); hotkeyFailures.Clear();
-        if(!profile.HotkeysEnabled) return;
-        foreach(var (id,key,label) in new[] { (1,0x4d,"Ctrl+Alt+M"),(2,0x42,"Ctrl+Alt+B"),(3,0x53,"Ctrl+Alt+S") }.Concat(Enumerable.Range(0,8).Select(i=>(10+i,0x31+i,"Ctrl+Alt+"+(i+1)))))
+        registeredKeys.Clear(); hotkeyFailures.Clear(); keyActions.Clear();
+        if(!profile.HotkeysEnabled || capturingHotkey || handle==IntPtr.Zero) return;
+        for(int i=0;i<profile.HotkeyBindings.Count;i++)
         {
-            if(RegisterHotKey(handle,id,0x4003,(uint)key)) registeredKeys.Add(id); else hotkeyFailures.Add(label);
+            var binding=profile.HotkeyBindings[i]; int id=100+i;
+            if(RegisterHotKey(handle,id,0x4000|(uint)binding.Modifiers,(uint)binding.Key)) { registeredKeys.Add(id); keyActions[id]=binding; }
+            else hotkeyFailures.Add(binding.Label);
         }
     }
     private IntPtr WindowMessage(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled)
     {
         if(message!=0x0312) return IntPtr.Zero;
-        int id=wParam.ToInt32(); handled=true;
-        if(id==1) engine.Muted=!engine.Muted;
-        else if(id==2) engine.Bypass=!engine.Bypass;
-        else if(id==3) { if(engine.IsRunning) engine.Stop(); else _=StartEngine(); }
-        else if(id>=10 && id<18) ApplyPreset(PresetLibrary.All[id-10].Id);
-        SendState(); return IntPtr.Zero;
+        handled=true;
+        if(keyActions.TryGetValue(wParam.ToInt32(),out var binding)) ExecuteHotkey(binding);
+        return IntPtr.Zero;
+    }
+    private void ExecuteHotkey(HotkeyBinding binding)
+    {
+        try
+        {
+            switch(binding.Action)
+            {
+                case "mute": engine.Muted=!engine.Muted; break;
+                case "bypass": engine.Bypass=!engine.Bypass; break;
+                case "engine": if(busy) return; if(engine.IsRunning) engine.Stop(); else _=StartEngine(); break;
+                case "record": ToggleRecording(true); break;
+                case "window": RestoreWindow(); break;
+                case "preset": ApplyPreset(binding.PresetId!); break;
+                case "next": case "previous":
+                    var presets=PresetLibrary.All.Concat(profile.CustomPresets).ToList();
+                    int current=presets.FindIndex(p=>p.Id==profile.PresetId);
+                    ApplyPreset(presets[(current+presets.Count+(binding.Action=="next"?1:-1))%presets.Count].Id); break;
+                case "strengthUp": case "strengthDown":
+                    var settings=(profile.Settings with { EffectStrength=profile.Settings.EffectStrength+(binding.Action=="strengthUp"?10:-10) }).Validate();
+                    profile=profile with { Settings=settings }; engine.Update(settings); SaveSoon(); break;
+            }
+            SendState();
+        }
+        catch(Exception ex) { Notify(ex.Message,true); }
+    }
+    private void ShowUpdateResult()
+    {
+        string path=Path.Combine(AppPaths.Data,"Updates","last-result.json");
+        try
+        {
+            if(!File.Exists(path)) return;
+            using var result=JsonDocument.Parse(File.ReadAllText(path));
+            bool success=result.RootElement.GetProperty("success").GetBoolean();
+            Send("updateResult",new { success,message=success ? "Обновление установлено. Настройки и записи сохранены." : "Не удалось установить обновление. Резервная копия и подробности — в Data/Updates." });
+        }
+        catch { /* A damaged log must not prevent audio startup. */ }
     }
     private async Task RunSmoke()
     {
@@ -316,11 +372,35 @@ public partial class MainWindow : Window
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-action=bypass]').click()");
             await Task.Delay(100);
             results.Add(new { test="bypass-through-bridge",passed=engine.Bypass });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#quick-effectStrength').value='165';document.querySelector('#quick-effectStrength').dispatchEvent(new Event('input',{bubbles:true}))");
+            await Task.Delay(120);
+            results.Add(new { test="effect-strength-through-bridge",passed=profile.Settings.EffectStrength==165 });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.nav-item[data-page=preferences]').click();document.querySelector('#addHotkey').click();document.querySelector('#hotkey-action-11').value='strengthDown';document.querySelector('#hotkey-action-11').dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#hotkey-key-11').click()");
+            await Task.Delay(100);
+            results.Add(new { test="capture-suspends-native-hotkeys",passed=capturingHotkey && registeredKeys.Count==0 });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#hotkey-key-11').dispatchEvent(new KeyboardEvent('keydown',{key:'F9',code:'F9',ctrlKey:true,shiftKey:true,bubbles:true}));document.querySelector('#saveHotkeys').click()");
+            await Task.Delay(150);
+            results.Add(new { test="custom-hotkey-capture-and-save",passed=profile.HotkeyBindings.Count==12 && profile.HotkeyBindings[^1]==new HotkeyBinding(120,6,"strengthDown") && !capturingHotkey });
+            bool messageHandled=false;
+            WindowMessage(handle,0x0312,new IntPtr(111),IntPtr.Zero,ref messageHandled);
+            results.Add(new { test="custom-hotkey-dispatch",passed=registeredKeys.Contains(111) && messageHandled && profile.Settings.EffectStrength==155 });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#addHotkey').click();document.querySelector('#hotkey-key-12').click()");
+            await Task.Delay(80);
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#hotkey-key-12').dispatchEvent(new KeyboardEvent('keydown',{key:'F9',code:'F9',ctrlKey:true,shiftKey:true,bubbles:true}))");
+            results.Add(new { test="duplicate-hotkey-shows-inline-error",passed=await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#saveHotkeys').disabled && document.querySelector('#hotkeyError').textContent.includes('дважды')")=="true" });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#hotkey-remove-12').click();document.querySelector('#saveHotkeys').click()");
+            await Task.Delay(100);
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#hotkey-key-11').click()");
+            await Task.Delay(80);
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#hotkey-key-11').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}))");
+            await Task.Delay(80);
+            results.Add(new { test="escape-restores-native-hotkeys",passed=!capturingHotkey && registeredKeys.Contains(111) });
+            results.Add(new { test="preferences-no-horizontal-overflow",passed=await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#workspace').scrollWidth <= document.querySelector('#workspace').clientWidth && document.querySelectorAll('.hotkey-row').length===12")=="true" });
             File.WriteAllText(Path.Combine(AppPaths.Data,"integration.json"),JsonSerializer.Serialize(results,ProfileStore.Json));
             ApplyPreset("studio"); engine.Muted=false; engine.Bypass=false; SendState();
         }
         int pageArgument=Array.IndexOf(arguments,"--page");
-        if(pageArgument>=0 && pageArgument+1<arguments.Length && new[]{"voices","rack","routing","record","help"}.Contains(arguments[pageArgument+1]))
+        if(pageArgument>=0 && pageArgument+1<arguments.Length && new[]{"voices","rack","routing","record","help","preferences"}.Contains(arguments[pageArgument+1]))
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.nav-item[data-page="+arguments[pageArgument+1]+"]')?.click()");
         await Task.Delay(150);
         await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#toasts').replaceChildren();document.activeElement?.blur()");

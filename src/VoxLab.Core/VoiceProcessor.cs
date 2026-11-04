@@ -9,8 +9,8 @@ public sealed class VoiceProcessor
     public int SampleRate { get; }
     private VoiceSettings settings=new();
     private readonly SoundTouchProcessor pitch;
-    private readonly Biquad highpass=new(), bass=new(), mid=new(), treble=new(), sibilants=new(), radioHigh=new(), radioLow=new();
-    private readonly DelayLine echo, chorus;
+    private readonly Biquad highpass=new(), bass=new(), mid=new(), treble=new(), sibilants=new(), radioHigh=new(), radioLow=new(), radioHigh2=new(), radioLow2=new(), radioPresence=new();
+    private readonly DelayLine echo, chorus, flanger;
     private readonly Reverb reverb;
     private readonly float[] scratch=new float[32768];
     private double gateEnvelope, gateGain=1, compEnvelope, compGain=1, deEssEnvelope, limiterGain=1;
@@ -19,6 +19,8 @@ public sealed class VoiceProcessor
     private bool gateOpen=true, previousBypass;
     private double gateAttack, gateRelease, compAttack, compRelease, smooth;
     private double targetIn, targetOut, gateOpenLevel, gateCloseLevel, makeup, robotWet, echoWet, echoFeedback, reverbWet, chorusWet, drive;
+    private double radioWet,crushWet,crushScale,crushInterval,crushClock,tremoloWet,tremoloPhase,flangerWet,flangerPhase;
+    private float crushHeld;
     public bool Bypass { get; set; }
     public bool Muted { get; set; }
     public float InputPeak { get; private set; }
@@ -40,13 +42,13 @@ public sealed class VoiceProcessor
         pitch.SetSetting(SettingId.OverlapDurationMs,8);
         pitch.SetSetting(SettingId.UseQuickSeek,0);
         pitch.SetSetting(SettingId.UseAntiAliasFilter,1);
-        echo=new DelayLine(sampleRate+4); chorus=new DelayLine(sampleRate/10+4); reverb=new Reverb(sampleRate);
+        echo=new DelayLine(sampleRate+4); chorus=new DelayLine(sampleRate/10+4); flanger=new DelayLine(sampleRate/20+4); reverb=new Reverb(sampleRate);
         Apply(settings);
     }
 
     public void Apply(VoiceSettings value)
     {
-        var next=value.Validate();
+        var next=value.Effective();
         if((Math.Abs(next.Pitch)<.001)!=(Math.Abs(settings.Pitch)<.001)) pitch.Clear();
         settings=next;
         pitch.PitchSemiTones=settings.Pitch;
@@ -55,7 +57,12 @@ public sealed class VoiceProcessor
         mid.Configure("peak",1400,settings.Mid,SampleRate,.85);
         treble.Configure("high",3600,settings.Treble+settings.Tone*.045,SampleRate);
         sibilants.Configure("hp",5200,0,SampleRate);
-        radioHigh.Configure("hp",350,0,SampleRate); radioLow.Configure("lp",3200,0,SampleRate);
+        radioHigh.Configure("hp",500,0,SampleRate); radioHigh2.Configure("hp",500,0,SampleRate);
+        radioLow.Configure("lp",2600,0,SampleRate); radioLow2.Configure("lp",2600,0,SampleRate);
+        radioPresence.Configure("peak",1550,7,SampleRate,1.2);
+        radioWet=settings.Radio ? settings.RadioAmount/100 : 0;
+        crushWet=settings.CrushMix/100; crushScale=Math.Pow(2,Math.Round(settings.CrushBits)-1);
+        crushInterval=Math.Max(1,SampleRate/settings.CrushRate); tremoloWet=settings.TremoloMix/100;flangerWet=settings.FlangerMix/100;
         targetIn=DbToLinear(settings.InputGain); targetOut=DbToLinear(settings.OutputGain);
         gateOpenLevel=DbToLinear(settings.GateThreshold); gateCloseLevel=DbToLinear(settings.GateThreshold-4);
         gateAttack=Coefficient(settings.GateAttackMs); gateRelease=Coefficient(settings.GateReleaseMs);
@@ -141,7 +148,30 @@ public sealed class VoiceProcessor
                 if(robotPhase>2*Math.PI) robotPhase-=2*Math.PI;
                 x=(float)(x*(1-robotWet)+x*Math.Cos(robotPhase)*robotWet*1.6);
                 if(drive>0) x=(float)(Math.Tanh(x*(1+drive*9))/(1+drive*1.7));
-                if(settings.Radio) x=radioLow.Process(radioHigh.Process(x));
+                if(radioWet>0)
+                {
+                    float band=radioPresence.Process(radioHigh2.Process(radioHigh.Process(x)));
+                    // Saturate inside the band and filter again afterwards, keeping
+                    // distortion harmonics inside the narrow communications channel.
+                    float radio=radioLow2.Process(radioLow.Process((float)(Math.Tanh(band*7)*.48)));
+                    x=(float)(x*(1-radioWet)+radio*radioWet);
+                }
+                if(crushWet>0)
+                {
+                    if(crushClock<=0) { crushHeld=(float)(Math.Round(x*crushScale)/crushScale);crushClock+=crushInterval; }
+                    crushClock--;x=(float)(x*(1-crushWet)+crushHeld*crushWet);
+                }
+                if(tremoloWet>0)
+                {
+                    tremoloPhase+=2*Math.PI*settings.TremoloRate/SampleRate;if(tremoloPhase>2*Math.PI)tremoloPhase-=2*Math.PI;
+                    x*=(float)(1-tremoloWet*.5*(1-Math.Sin(tremoloPhase)));
+                }
+                if(flangerWet>0)
+                {
+                    flangerPhase+=2*Math.PI*settings.FlangerRate/SampleRate;if(flangerPhase>2*Math.PI)flangerPhase-=2*Math.PI;
+                    float sweep=flanger.Read(SampleRate*(.0025+.002*Math.Sin(flangerPhase)));
+                    flanger.Write(Math.Clamp(x+sweep*.35f,-2,2)); x=(float)(x*(1-flangerWet*.35)+sweep*flangerWet*.7);
+                }
                 chorusPhase+=2*Math.PI*.72/SampleRate; if(chorusPhase>2*Math.PI) chorusPhase-=2*Math.PI;
                 float doubled=(chorus.Read(SampleRate*(.014+.004*Math.Sin(chorusPhase)))+chorus.Read(SampleRate*(.021+.005*Math.Cos(chorusPhase*.83))))*.5f;
                 chorus.Write(x); x=(float)(x*(1-chorusWet*.4)+doubled*chorusWet);
