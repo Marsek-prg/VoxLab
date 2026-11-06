@@ -32,6 +32,11 @@ public sealed record UserProfile
     {
         var restored=this with { VoiceEdits=(VoiceEdits ?? []).Where(x=>x.Value!=null && FindVoice(x.Key)!=null)
             .Take(PresetLibrary.All.Count+64).ToDictionary(x=>x.Key,x=>x.Value.Validate()) };
+        var factory=PresetLibrary.All.FirstOrDefault(p=>p.Id==PresetId);
+        // Up to 0.2.1 all factory voices used -3 dB. An untouched active
+        // snapshot should pick up its new default exactly like an inactive voice.
+        if(factory!=null && !restored.VoiceEdits.ContainsKey(PresetId) && Settings==(factory.Settings with {OutputGain=-3}))
+            return restored.SelectVoice(PresetId);
         return restored.FindVoice(PresetId)==null ? restored.SelectVoice("studio") : restored.Remember(PresetId,Settings);
     }
     public List<HotkeyBinding> HotkeyBindings { get; init; }=Hotkeys.Defaults();

@@ -15,3 +15,15 @@
 @media(max-width:760px){.hotkey-row{grid-template-columns:minmax(0,1fr) 38px}.hotkey-row select{grid-column:1/-1}.version-label{font-size:11px}}
 
 .studio-master{margin-bottom:18px}.studio-master .helper{margin-top:6px}.cable-setup{margin-top:18px}.cable-setup>summary{cursor:pointer;font-weight:650}.cable-setup[open]>.cable-setup-heading{margin-top:16px}
+
+.voice-actions,.check-listen{display:flex;flex-wrap:wrap;gap:8px}
+.voice-actions{justify-content:flex-end}
+.routing-help{margin:18px 0}
+.routing-help>details{margin-left:16px}
+#checkStatus{min-height:2.6em;font-size:14px;line-height:1.5}
+#checkProgress{width:100%;height:7px;accent-color:var(--accent)}
+#voiceCheckDialog{max-width:calc(100vw - 32px)}
+#voiceCheckDialog .check-listen{margin-top:12px}
+#voiceCheckDialog [hidden],.selected-description[hidden]{display:none}
+#voiceCheckDialog .dialog-actions:has(> [hidden]:only-child),#voiceCheckDialog .dialog-actions:not(:has(> :not([hidden]))){display:none}
+@media(max-width:1010px){.voice-actions .button{font-size:11px;padding:8px 10px}}

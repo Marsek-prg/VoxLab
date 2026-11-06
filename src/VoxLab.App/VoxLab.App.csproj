@@ -12,6 +12,7 @@
     <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="VoxLab.Windows.Tests" />
     <ProjectReference Include="../VoxLab.Core/VoxLab.Core.csproj" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3650.58" />

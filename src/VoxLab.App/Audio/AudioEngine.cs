@@ -134,21 +134,10 @@ public sealed class AudioEngine : IDisposable
                 processor.Bypass=bypass; processor.Muted=muted;
                 WaveFormat format=inputFormat;
                 int frames=args.BytesRecorded/format.BlockAlign;
-                int bytesPerSample=format.BitsPerSample/8;
                 for(int start=0;start<frames;start+=decoded.Length)
                 {
                     int length=Math.Min(decoded.Length,frames-start);
-                    for(int i=0;i<length;i++)
-                    {
-                        float sample=0; int channels=0;
-                        for(int channel=0;channel<format.Channels;channel++)
-                        {
-                            if(route.InputChannel>=0 && channel!=Math.Min(route.InputChannel,format.Channels-1)) continue;
-                            int index=(start+i)*format.BlockAlign+channel*bytesPerSample;
-                            sample+=Decode(args.Buffer,index,format.Encoding,format.BitsPerSample); channels++;
-                        }
-                        decoded[i]=sample/Math.Max(1,channels);
-                    }
+                    DecodeMono(args.Buffer,start,format,route.InputChannel,decoded.AsSpan(0,length));
                     int count=processor.Process(decoded.AsSpan(0,length),processed);
                     var samples=processed.AsSpan(0,count);
                     mainBuffer?.Add(samples);
@@ -165,6 +154,19 @@ public sealed class AudioEngine : IDisposable
             }
         }
         catch(Exception ex) { lastError="Ошибка обработки аудио: "+ex.Message; running=false; }
+    }
+
+    internal static void DecodeMono(byte[] buffer,int start,WaveFormat format,int selected,Span<float> samples)
+    {
+        int bytes=format.BitsPerSample/8;
+        int first=selected<0 ? 0 : Math.Min(selected,format.Channels-1);
+        int channels=selected<0 ? format.Channels : 1;
+        for(int i=0;i<samples.Length;i++) {
+            int offset=(start+i)*format.BlockAlign+first*bytes;
+            float total=0;
+            for(int ch=0;ch<channels;ch++) total+=Decode(buffer,offset+ch*bytes,format.Encoding,format.BitsPerSample);
+            samples[i]=total/channels;
+        }
     }
 
     internal static float Decode(byte[] buffer,int offset,WaveFormatEncoding encoding,int bits)

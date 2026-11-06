@@ -194,6 +194,31 @@ Check("Compressor does not swell after a short speech gap",()=>{
     double before=Rms(result.Skip(Rate-Rate/50).Take(Rate/50)),after=Rms(result.Skip(Rate+Rate*30/1000).Take(Rate/50));
     Assert(after/before<1.12 && after/before>.88,$"Swell across a 30 ms gap: {after/before:F3}");
 });
+Check("Factory trims keep radio, megaphone and UFO close to studio on a voiced signal",()=>{
+    var voiced=new float[Rate*3]; double phase=0;
+    for(int i=0;i<voiced.Length;i++) {
+        double t=(double)i/Rate, fundamental=147+12*Math.Sin(2*Math.PI*.8*t);
+        phase+=2*Math.PI*fundamental/Rate;
+        double syllable=.25+.75*Math.Pow(.5+.5*Math.Sin(2*Math.PI*3*t),.65);
+        for(int h=1;h<=34;h++) {
+            double f=h*fundamental;
+            double formants=.2+1.8*Math.Exp(-Math.Pow((f-650)/180,2))+2.2*Math.Exp(-Math.Pow((f-1500)/240,2))+.9*Math.Exp(-Math.Pow((f-2600)/300,2));
+            voiced[i]+=(float)(.19*syllable*Math.Sin(h*phase)*formants/h);
+        }
+    }
+    double Level(string id)=>20*Math.Log10(Rms(Process(PresetLibrary.All.First(p=>p.Id==id).Settings,voiced).Skip(Rate)));
+    double studio=Level("studio");
+    foreach(string id in new[]{"radio","megaphone","ufo","robot"})
+        Assert(Math.Abs(Level(id)-studio)<3,$"Unbalanced factory voice {id}, studio={studio:F1} voice={Level(id):F1} dB");
+});
+Check("Meme overload flattens peaks, adds harmonics and respects zero strength",()=>{
+    var preset=PresetLibrary.All.First(p=>p.Id=="overload").Settings.WithoutStudioProcessing();
+    var input=Sine(200,2,.15f);
+    var output=Process(preset,input).Skip(Rate).ToArray();
+    double crest=output.Max(x=>Math.Abs(x))/Rms(output);
+    Assert(crest<1.22 && output.Max(x=>Math.Abs(x))<.5,"Distortion must flatten peaks below the output ceiling");
+    Assert(Process(preset with {EffectStrength=0},input).SequenceEqual(Process(preset with {Overload=0,CrushMix=0},input)),"Overload leaked at zero intensity");
+});
 Check("All new effects stream with bounded allocation and CPU time",()=>{
     var processor=new VoiceProcessor(Rate);processor.Apply(Neutral() with { Radio=true,CrushMix=80,TremoloMix=80,FlangerMix=80,Pitch=-5,RobotMix=70,ReverbMix=50,EchoMix=40,ChorusMix=40 });
     var input=Sine(500).AsSpan(0,480).ToArray();var output=new float[32768];

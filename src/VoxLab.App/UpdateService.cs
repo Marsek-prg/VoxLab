@@ -15,7 +15,7 @@ public sealed record UpdateStatus(string Phase, string Message, string? Version=
 
 public sealed class UpdateService : IDisposable
 {
-    public const string CurrentVersion="0.2.1";
+    public const string CurrentVersion="0.2.2";
     private const string Releases="https://api.github.com/repos/Marsek-prg/VoxLab/releases/latest";
     private readonly HttpClient client;
     private readonly Version installedVersion;

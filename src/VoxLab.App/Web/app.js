@@ -70,7 +70,7 @@ let state = {profile:{settings:{},route:{},customPresets:[],favorites:[],presetI
 let page='voices', category='Все', search='', busy=false, waveform=Array(128).fill(0), lastRecordingError='';
 const pendingEdits=new Map(), previewEdits=new Map(); let editSequence=0;
 const parameters = {
-  effectStrength:['Сила эффекта',0,200,1,'%','Чисто','Сильнее'],radioAmount:['Количество рации',0,100,1,'%'],
+  overload:['Перегруз',0,100,1,'%'],effectStrength:['Сила эффекта',0,200,1,'%','Чисто','Сильнее'],radioAmount:['Количество рации',0,100,1,'%'],
   crushMix:['Цифровой хруст',0,100,1,'%'],crushBits:['Разрядность',3,16,1,'bit'],crushRate:['Частота оцифровки',1500,24000,100,'Hz'],
   tremoloMix:['Глубина пульсации',0,100,1,'%'],tremoloRate:['Частота пульсации',.5,30,.1,'Hz'],
   flangerMix:['Количество флэнжера',0,100,1,'%'],flangerRate:['Скорость движения',.05,3,.05,'Hz'],
@@ -97,7 +97,7 @@ const modules=[
   {title:'Тремоло',icon:'gauge',desc:'Ритмически меняет громкость — от лёгкой дрожи до глубоких провалов.',keys:['tremoloMix','tremoloRate']},
   {title:'Флэнжер',icon:'orbit',desc:'Плавающая короткая задержка с обратной связью для текучего звука.',keys:['flangerMix','flangerRate']},
   {title:'Лимитер',icon:'shield',toggle:'limiterEnabled',desc:'Сглаживает пики до −0,45 dBFS. При отключении остаётся только жёсткий предел цифрового выхода 0 dBFS.',keys:[]},
-  {title:'Усиление и рация',icon:'radio',desc:'Уровни тракта, насыщение и полоса рации.',keys:['radioAmount','drive','inputGain','outputGain'],radio:true}
+  {title:'Усиление и рация',icon:'radio',desc:'Уровни тракта, насыщение и полоса рации.',keys:['radioAmount','drive','overload','inputGain','outputGain'],radio:true}
 ];
 
 function send(action,data=null){
@@ -149,7 +149,7 @@ function renderGrid(){
     return `<article class="preset-card${selected?' selected':''}" style="--preset-color:${colors[p.color]||colors.sage}"><button class="preset-select" data-preset="${escapeHtml(p.id)}" aria-pressed="${selected}" aria-label="${escapeHtml(p.name)}. ${escapeHtml(p.description)}"><span class="preset-symbol">${icon(p.icon)}</span><span class="preset-name">${escapeHtml(p.name)}</span><span class="preset-description">${escapeHtml(p.description)}</span></button><button class="favorite" data-favorite="${escapeHtml(p.id)}" aria-pressed="${favorite}" aria-label="${favorite?'Удалить из избранного':'В избранное'}: ${escapeHtml(p.name)}" title="${favorite?'Удалить из избранного':'В избранное'}">${icon('star')}</button>${selected?`<span class="selected-mark">${icon('check')}</span>`:''}</article>`;
   }).join('');
   $('#emptyPresets').hidden=presets.length>0;
-  $('#emptyText').textContent=category==='Мои'?'Настройте голос и нажмите «Сохранить свой пресет».':category==='Избранное'?'Отметьте звёздочкой голоса, к которым хотите вернуться.':'Попробуйте другое название или категорию.';
+  $('#emptyText').textContent=category==='Мои'?'Настройте голос и нажмите «Сохранить как новый голос…».':category==='Избранное'?'Отметьте звёздочкой голоса, к которым хотите вернуться.':'Попробуйте другое название или категорию.';
   $('#customCount').textContent=state.profile.customPresets.length;
   $('.nav-count').textContent=state.presets.length;
   renderCategories();
@@ -158,6 +158,7 @@ function renderGrid(){
 function updateEdited(){
   const preset=selectedPreset();if(!preset)return;
   const edited=Object.keys(preset.settings).some(key=>state.profile.settings[key]!==preset.settings[key]);
+  $('#selectedDescription').hidden=edited;
   $('#editedBadge').hidden=!edited;$$('[data-action=resetPreset]').forEach(el=>el.disabled=!edited);
 }
 function renderInspector(){
@@ -165,8 +166,17 @@ function renderInspector(){
   const preset=selectedPreset();if(!preset)return;
   $('#selectedName').textContent=preset.name;$('#selectedDescription').textContent=preset.detail;
   $('#selectedArt').innerHTML=icon(preset.icon);$('#selectedArt').style.color=colors[preset.color]||colors.sage;
-  const character=state.profile.settings.radio?'radioAmount':(state.profile.settings.crushMix>0?'crushMix':state.profile.settings.tremoloMix>0?'tremoloMix':state.profile.settings.flangerMix>0?'flangerMix':'robotMix');
-  const quick=['effectStrength','pitch','tone',character,'echoMix','reverbMix','outputGain'];
+  // Use the preset's original character so a control stays reachable at zero.
+  const s=preset.settings;
+  const groups=[
+    [s.overload>0,'overload'], [s.radio,'radioAmount','drive'],
+    [s.crushMix>=40,'crushMix','crushBits'], [s.robotMix>=40,'robotMix','robotFrequency'],
+    [s.flangerMix>=40,'flangerMix','flangerRate'], [s.tremoloMix>=40,'tremoloMix','tremoloRate'],
+    [s.reverbMix>=35,'reverbMix','echoMix'], [s.echoMix>0,'echoMix','echoDelayMs'],
+    [s.chorusMix>0,'chorusMix'], [s.drive>0,'drive'], [s.reverbMix>0,'reverbMix']
+  ];
+  const character=groups.find(([active])=>active)?.slice(1) ?? [];
+  const quick=['effectStrength','pitch','tone','outputGain',...character];
   $('#quickParameters').innerHTML=quick.map(k=>parameterHtml(k,'quick')).join('');
   const old=$('#deletePresetButton');if(old)old.remove();
   if(preset.id.startsWith('user-')){

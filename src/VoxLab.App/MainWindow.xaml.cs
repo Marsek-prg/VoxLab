@@ -24,6 +24,8 @@ public partial class MainWindow : Window
     private readonly List<string> hotkeyFailures=[];
     private readonly Dictionary<int,HotkeyBinding> keyActions=[];
     private readonly UpdateService updater=new();
+    private CancellationTokenSource? checkOperation;
+    private VoiceCheck? checkClip;
     private bool capturingHotkey;
     private bool ready, closing, busy, faultHandled;
     internal bool ExitRequested { get; set; }
@@ -53,7 +55,7 @@ public partial class MainWindow : Window
         Closing+=(_,e)=>
         {
             if(!ExitRequested && tray?.Visible==true) { e.Cancel=true; Hide(); return; }
-            closing=true; meterTimer.Stop(); saveTimer.Stop();
+            closing=true; CloseVoiceCheck(); meterTimer.Stop(); saveTimer.Stop();
             foreach(int id in registeredKeys) UnregisterHotKey(handle,id);
             engine.Dispose(); tray?.Dispose(); updater.Dispose();
             try { ProfileStore.Save(profile); } catch { }
@@ -146,6 +148,9 @@ public partial class MainWindow : Window
                     profile=profile.Remember(editId,settings); if(editId==profile.PresetId) ApplyAudioSettings(); SaveSoon();
                     Send("settingsAck",new { presetId=editId, sequence=data.GetProperty("sequence").GetInt64() }); break;
                 case "resetPreset": ApplyPreset(profile.PresetId,true); break;
+                case "checkCapture": case "checkOriginal": case "checkProcessed":
+                    await RunVoiceCheck(action); break;
+                case "checkClose": CloseVoiceCheck(); break;
                 case "studioProcessing":
                     profile=profile with { StudioProcessing=data.GetBoolean() }; ApplyAudioSettings(); SaveSoon(); SendState(); break;
                 case "preset": ApplyPreset(data.GetString()!); break;
@@ -268,8 +273,45 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo("explorer.exe") { Arguments="\""+directory+"\"",UseShellExecute=true });
     }
     private void SaveSoon() { saveTimer.Stop(); saveTimer.Start(); }
+    private void CloseVoiceCheck()
+    {
+        checkClip=null;
+        checkOperation?.Cancel();
+        checkOperation=null;
+    }
+    private async Task RunVoiceCheck(string action)
+    {
+        if(checkOperation!=null || !IsVisible || closing) return;
+        using var operation=new CancellationTokenSource();
+        checkOperation=operation;
+        var route=profile.Route;
+        bool capture=action=="checkCapture";
+        try {
+            if(capture) {
+                checkClip=null;
+                if(engine.Muted) throw new InvalidOperationException("Включите микрофон, чтобы записать пробу.");
+                var settings=profile.StudioProcessing ? profile.Settings : profile.Settings.WithoutStudioProcessing();
+                Send("voiceCheck",new {phase="capture"});
+                var clip=await Task.Run(()=>VoiceCheck.CaptureAsync(route,settings,operation.Token));
+                if(checkOperation==operation) checkClip=clip;
+            } else {
+                var clip=checkClip ?? throw new InvalidOperationException("Сначала запишите короткую фразу.");
+                bool processed=action=="checkProcessed";
+                Send("voiceCheck",new {phase=processed?"processed":"original"});
+                await Task.Run(()=>clip.PlayAsync(processed,route.MonitorId,route.MonitorVolume,operation.Token));
+            }
+            if(checkOperation==operation) Send("voiceCheck",new {phase="ready"});
+        }
+        catch(OperationCanceledException) when(operation.IsCancellationRequested) { }
+        catch(Exception ex) {
+            if(checkOperation==operation) Send("voiceCheck",new {phase="error",canPlay=checkClip!=null,
+                message=ex is TimeoutException ? "Аудиоустройство не ответило. Проверьте подключение и повторите пробу." : ex.Message});
+        }
+        finally { if(checkOperation==operation) checkOperation=null; }
+    }
     private void SendState()
     {
+        if(engine.Muted && checkOperation!=null) { CloseVoiceCheck(); Send("voiceCheck",new {phase="closed"}); }
         if(tray!=null) tray.Text=engine.IsRecording ? "VoxLab · идёт запись WAV" : engine.IsRunning ? (engine.Muted ? "VoxLab · выход заглушён" : "VoxLab · голос включён") : "VoxLab · обработка остановлена";
         Send("state",new { profile=new {profile.PresetId,profile.Settings,profile.Route,profile.Favorites,profile.CustomPresets,profile.HotkeysEnabled,profile.HotkeyBindings,profile.StudioProcessing},presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version=UpdateService.CurrentVersion });
         if(IsVisible && WindowState!=WindowState.Minimized) Send("meter",engine.MeterSnapshot());
@@ -283,6 +325,7 @@ public partial class MainWindow : Window
             if(IsVisible && WindowState!=WindowState.Minimized) { Web.CoreWebView2.Resume(); SendState(); }
             else
             {
+                CloseVoiceCheck(); Send("voiceCheck",new {phase="closed"});
                 meterTimer.Interval=TimeSpan.FromMilliseconds(250);
                 await Web.CoreWebView2.TrySuspendAsync();
                 if(!closing && IsVisible && WindowState!=WindowState.Minimized) Web.CoreWebView2.Resume();
@@ -351,12 +394,56 @@ public partial class MainWindow : Window
         }
         catch { /* A damaged log must not prevent audio startup. */ }
     }
+    // Explicit hardware check on an isolated profile. Use only the virtual input;
+    // play silent buffers to exercise the physical endpoint without audible output.
+    private async Task TestVoiceCheck(List<object> results)
+    {
+        var route=profile.Route;
+        var cable=AudioEngine.Devices(DataFlow.Capture).First(d=>d.IsVirtual && d.Name.Contains("CABLE Output",StringComparison.OrdinalIgnoreCase));
+        profile=profile with {Route=route with {InputId=cable.Id,MonitorVolume=25}};
+        SendState();
+        async Task Click(string id)=>await Web.CoreWebView2.ExecuteScriptAsync($"document.getElementById('{id}').click()");
+        async Task<bool> WaitUntil(Func<bool> predicate,int limit=10000) {
+            var watch=Stopwatch.StartNew();
+            while(!predicate() && watch.ElapsedMilliseconds<limit) await Task.Delay(50);
+            return predicate();
+        }
+        try {
+            await Click("voiceCheckButton"); await WaitUntil(()=>checkOperation!=null,1000);
+            await Click("checkClose");
+            results.Add(new {test="cancel-local-capture",passed=await WaitUntil(()=>checkOperation==null,1500) && checkClip==null});
+            await Click("voiceCheckButton");
+            bool captured=await WaitUntil(()=>checkClip!=null);
+            results.Add(new {test="five-seconds-without-live-output",passed=captured && checkClip!.Original.Length==checkClip.SampleRate*5 && !engine.IsRunning});
+            if(checkClip!=null) {
+                Array.Clear(checkClip.Original); Array.Clear(checkClip.Processed);
+                foreach(string button in new[]{"checkOriginal","checkProcessed"}) {
+                    await Click(button);
+                    bool started=await WaitUntil(()=>checkOperation!=null,1000);
+                    bool completed=await WaitUntil(()=>checkOperation==null);
+                    string status=await Web.CoreWebView2.ExecuteScriptAsync("!document.querySelector('#checkOriginal').disabled && document.querySelector('#checkRoute').hidden");
+                    results.Add(new {test="play-"+button,passed=started && completed && status=="true"});
+                }
+            }
+        } finally {
+            await Click("checkClose"); await Task.Delay(100);
+            profile=profile with {Route=route}; SendState();
+        }
+    }
     private async Task RunSmoke()
     {
         await Task.Delay(1600);
         if(arguments.Contains("--ui-integration"))
         {
             var results=new List<object>();
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-preset=feminine]').click()");
+            await Task.Delay(120);
+            results.Add(new {test="four-essential-voice-controls",passed=await Web.CoreWebView2.ExecuteScriptAsync("document.querySelectorAll('#quickParameters input').length===4 && !document.querySelector('#quick-robotMix')")== "true"});
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-preset=overload]').click()");
+            await Task.Delay(120);
+            results.Add(new {test="meme-overload-control",passed=profile.PresetId=="overload" && await Web.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('#quick-overload')")=="true"});
+            results.Add(new {test="help-inside-routing",passed=await Web.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('#page-routing .routing-help') && !document.querySelector('nav [data-page=help]')")=="true"});
+            if(arguments.Contains("--virtual-voice-check")) await TestVoiceCheck(results);
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-preset=robot]').focus();document.querySelector('[data-preset=robot]').click()");
             await Task.Delay(150);
             results.Add(new { test="preset-through-bridge",passed=profile.PresetId=="robot" && profile.Settings.RobotMix==82 });
@@ -373,6 +460,7 @@ public partial class MainWindow : Window
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#quick-pitch').value='3.5';document.querySelector('#quick-pitch').dispatchEvent(new Event('input',{bubbles:true}))");
             await Task.Delay(150);
             results.Add(new { test="slider-through-bridge",passed=profile.Settings.Pitch==3.5 });
+            results.Add(new { test="edited-description-hidden",passed=await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#selectedDescription').hidden")== "true" });
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#quick-tone').value='-100';document.querySelector('#quick-tone').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-preset=feminine]').click();document.querySelector('[data-preset=robot]').click()");
             await Task.Delay(160);
             results.Add(new { test="rapid-switch-retains-sliders",passed=profile.PresetId=="robot" && profile.Settings.Pitch==3.5 && profile.Settings.Tone==-100 });
@@ -431,7 +519,7 @@ public partial class MainWindow : Window
             ApplyPreset("studio"); engine.Muted=false; engine.Bypass=false; SendState();
         }
         int pageArgument=Array.IndexOf(arguments,"--page");
-        if(pageArgument>=0 && pageArgument+1<arguments.Length && new[]{"voices","rack","routing","record","help","preferences"}.Contains(arguments[pageArgument+1]))
+        if(pageArgument>=0 && pageArgument+1<arguments.Length && new[]{"voices","rack","routing","record","preferences"}.Contains(arguments[pageArgument+1]))
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.nav-item[data-page="+arguments[pageArgument+1]+"]')?.click()");
         await Task.Delay(150);
         await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#toasts').replaceChildren();document.activeElement?.blur()");

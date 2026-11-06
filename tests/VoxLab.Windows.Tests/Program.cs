@@ -120,6 +120,24 @@ Check("Per-voice edits survive switching, disk round-trip and selective reset",(
     var legacy=new UserProfile{PresetId="feminine",Settings=new VoiceSettings{Tone=-78}};
     Assert(legacy.RestoreVoices().SelectVoice("radio").SelectVoice("feminine").Settings.Tone==-78,"Lost old active profile");
 });
+Check("Calibrated defaults migrate without overwriting manual levels",()=> {
+    var current=PresetLibrary.All.First(p=>p.Id=="radio").Settings;
+    var old=new UserProfile{PresetId="radio",Settings=current with {OutputGain=-3}};
+    Assert(old.RestoreVoices().Settings==current,"Active untouched factory voice kept the obsolete gain");
+    var user=old.Remember("radio",current with {OutputGain=-3});
+    Assert(user.RestoreVoices().Settings.OutputGain==-3,"Explicit user trim changed");
+    Assert((old with {Settings=old.Settings with {Tone=27}}).RestoreVoices().Settings.OutputGain==-3,"Legacy edited voice changed");
+});
+Check("Five second comparison renders one immutable source including the pitch tail",()=> {
+    const int rate=44100;
+    var original=Enumerable.Range(0,rate*5).Select(i=>(float)(.15*Math.Sin(2*Math.PI*216*i/rate))).ToArray();
+    var backup=original.ToArray();
+    var clip=VoiceCheck.Render(original,rate,PresetLibrary.All.First(p=>p.Id=="feminine").Settings,CancellationToken.None);
+    Assert(backup.SequenceEqual(clip.Original) && !clip.Original.SequenceEqual(clip.Processed),"A/B source was modified or effect missing");
+    Assert(clip.Processed.Length==rate*5 && clip.Processed.TakeLast(1024).Any(x=>Math.Abs(x)>.01),"Bad output duration or missing pitch tail");
+    bool cancelled=false;try{VoiceCheck.Render(original,rate,new(),new CancellationToken(true));}catch(OperationCanceledException){cancelled=true;}
+    Assert(cancelled,"Cancelled comparison continued rendering");
+});
 Check("Hotkeys migrate old profiles and preserve an intentionally empty list",()=> {
     var old=JsonSerializer.Deserialize<UserProfile>("{}")!;
     Assert(old.HotkeyBindings.Count==11,"Old shortcuts lost");

@@ -49,6 +49,8 @@ public sealed class VoiceProcessor
         Apply(settings);
     }
 
+    private float overloadMix, overloadBoost;
+
     public void Apply(VoiceSettings value)
     {
         var next=value.Effective();
@@ -86,6 +88,8 @@ public sealed class VoiceProcessor
         if(!settings.CompressorEnabled) { compGain=1; compEnvelope=0; compHold=0; GainReductionDb=0; }
         if(!settings.LimiterEnabled) limiterGain=1;
         makeup=DbToLinear(settings.CompressorMakeup); smooth=Coefficient(12);
+        overloadMix=(float)(settings.Overload/100);
+        overloadBoost=(float)DbToLinear(30*overloadMix);
         robotWet=settings.RobotMix/100; echoWet=settings.EchoMix/100; echoFeedback=settings.EchoFeedback/100;
         reverbWet=settings.ReverbMix/100; chorusWet=settings.ChorusMix/100*.65; drive=settings.Drive/100;
         if(echoDelay==0) echoDelay=settings.EchoDelayMs*SampleRate/1000;
@@ -178,6 +182,11 @@ public sealed class VoiceProcessor
                     x=(float)(x*(1-robotWet)+x*Math.Cos(robotPhase)*robotWet*1.6);
                 }
                 if(drive>0) x=(float)(Math.Tanh(x*(1+drive*9))/(1+drive*1.7));
+                if(overloadMix>0) {
+                    // A cheap overloaded microphone flattens both peaks before playback gain.
+                    float clipped=Math.Clamp(x*overloadBoost,-.20f,.20f);
+                    x+=(clipped-x)*overloadMix;
+                }
                 if(radioWet>0)
                 {
                     float band=radioPresence.Process(radioHigh2.Process(radioHigh.Process(x)));
