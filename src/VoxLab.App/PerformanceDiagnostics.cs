@@ -53,6 +53,9 @@ public partial class MainWindow
             engine.StartRecording(wav);
             await Task.Delay(2000);
             await Measure("visible-all-effects-and-recording",20);
+            Close();
+            Check("Closing to tray preserves audio and WAV recording",!IsVisible && engine.IsRunning && engine.IsRecording);
+            await Task.Delay(400);
             engine.StopRecording();
             using(var reader=new WaveFileReader(wav))
             {
@@ -87,7 +90,7 @@ public partial class MainWindow
             File.WriteAllText(Path.Combine(AppPaths.Data,"performance.json"),JsonSerializer.Serialize(new {
                 ok=failure==null,error=failure,logicalProcessors=Environment.ProcessorCount,phases,checks
             },ProfileStore.Json));
-            Close();
+            ExitApplication();
         }
     }
 }

@@ -46,10 +46,36 @@ Check("Ring buffer wrap and oversized blocks keep newest half second",()=> {
     Assert(Read(ring,4000).SequenceEqual(Enumerable.Range(2000,4000).Select(i=>(float)i)),"Oversize failed");
     Assert(ring.Overruns>0 && ring.BufferedMilliseconds==0,"Queue is unbounded");
 });
+Check("Independent endpoint clocks do not starve the output or build up delay",()=> {
+    foreach(int ppm in new[]{-1000,1000}) {
+        const int rate=8000, chunk=80; var ring=new AudioRingBuffer(rate,40);
+        var input=Enumerable.Repeat(.25f,chunk+1).ToArray(); var bytes=new byte[chunk*4]; double clock=0,highest=0,minimum=1;
+        for(int tick=0;tick<24000;tick++) {
+            clock+=chunk*(1+ppm/1_000_000.0); int n=(int)clock; clock-=n;
+            ring.Add(input.AsSpan(0,n));ring.Read(bytes,0,bytes.Length);
+            if(tick>100) { highest=Math.Max(highest,ring.BufferedMilliseconds); foreach(float v in MemoryMarshal.Cast<byte,float>(bytes.AsSpan())) minimum=Math.Min(minimum,v); }
+        }
+        Assert(ring.Underruns==0 && ring.Overruns==0 && highest<70 && minimum>.249,
+            $"Clock {ppm} ppm: gaps={ring.Underruns}, max queue={highest:F1} ms, minimum={minimum}");
+    }
+});
 Check("Ring buffer preserves caller prefix and suffix",()=> {
     var ring=new AudioRingBuffer(8000,20);ring.Add(new float[160]);
     var bytes=Enumerable.Repeat((byte)0xA5,660).ToArray();ring.Read(bytes,8,640);
     Assert(bytes.Take(8).All(v=>v==0xA5) && bytes.Skip(648).All(v=>v==0xA5),"Write outside requested span");
+});
+Check("Bursty capture packets keep a steady voiced tone during clock correction",()=> {
+    const int rate=8000,n=80;var queue=new AudioRingBuffer(rate,40);var output=new byte[n*4];
+    float[] burst=new float[4*n+4]; int pending=0; long phase=0; double clock=0,min=1,max=0;
+    for(int tick=0;tick<12000;tick++) {
+        clock+=n*1.0008; int incoming=(int)clock;clock-=incoming;
+        for(int i=0;i<incoming;i++)burst[pending++]=(float)(.4*Math.Sin(2*Math.PI*200*(phase++)/(rate*1.0008)));
+        if(tick%6 is 0 or 3 or 5) { queue.Add(burst.AsSpan(0,pending));pending=0; }
+        queue.Read(output,0,output.Length);
+        if(tick>200) { double energy=0;foreach(var v in MemoryMarshal.Cast<byte,float>(output.AsSpan()))energy+=v*v;
+            double rms=Math.Sqrt(energy/n);min=Math.Min(min,rms);max=Math.Max(max,rms); }
+    }
+    Assert(queue.Underruns==0 && queue.Overruns==0 && min>.275 && max<.29,$"Playback tone level {min:F4}–{max:F4}, gaps {queue.Underruns}");
 });
 Check("Concurrent audio producer/consumer stay bounded",()=> {
     var ring=new AudioRingBuffer(48000,20);var block=Enumerable.Repeat(.2f,480).ToArray();
@@ -81,6 +107,18 @@ Check("Missing endpoints fail before capturing",()=> {
     using var engine=new AudioEngine();bool rejected=false;
     try { engine.Start(new RouteSettings()); } catch(InvalidOperationException) { rejected=true; }
     Assert(rejected && !engine.IsRunning && !engine.IsRecording,"Invalid route captured audio");
+});
+Check("Per-voice edits survive switching, disk round-trip and selective reset",()=> {
+    var p=new UserProfile();p=p.SelectVoice("feminine");p=p.Remember("feminine",p.Settings with { Tone=-100,OutputGain=-9,DeEsserEnabled=false });
+    p=p.SelectVoice("radio");p=p.Remember("radio",p.Settings with { RadioAmount=66 });
+    var json=new JsonSerializerOptions(JsonSerializerDefaults.Web);
+    p=JsonSerializer.Deserialize<UserProfile>(JsonSerializer.Serialize(p,json),json)!.RestoreVoices();
+    p=p.SelectVoice("feminine");Assert(p.Settings.Tone==-100 && p.Settings.OutputGain==-9 && !p.Settings.DeEsserEnabled,"Edited sliders did not survive");
+    p=p.Remember("radio",p.SelectVoice("radio").Settings with { RadioAmount=42 }); Assert(p.PresetId=="feminine" && p.Settings.Tone==-100,"Late edit overwrote active voice");
+    p=p.SelectVoice("feminine",true); Assert(p.Settings==PresetLibrary.All.First(x=>x.Id=="feminine").Settings,"Reset incomplete");
+    Assert(p.SelectVoice("radio").Settings.RadioAmount==42,"Reset erased other voice");
+    var legacy=new UserProfile{PresetId="feminine",Settings=new VoiceSettings{Tone=-78}};
+    Assert(legacy.RestoreVoices().SelectVoice("radio").SelectVoice("feminine").Settings.Tone==-78,"Lost old active profile");
 });
 Check("Hotkeys migrate old profiles and preserve an intentionally empty list",()=> {
     var old=JsonSerializer.Deserialize<UserProfile>("{}")!;
@@ -151,7 +189,7 @@ Check("Update service downloads only changed components and prepares a verified 
             ["https://api.github.com/repos/Marsek-prg/VoxLab/releases/latest"]=JsonSerializer.SerializeToUtf8Bytes(new{tag_name="v0.2.1",prerelease=false,draft=false,assets},json),
             [prefix+"VoxLab-update.json"]=JsonSerializer.SerializeToUtf8Bytes(manifest,json),[prefix+"VoxLab-app-test.zip"]=app,[prefix+"VoxLab-runtime-test.zip"]=runtime
         });
-        using var updater=new UpdateService(transport);
+        using var updater=new UpdateService(transport,new Version(0,2,0));
         updater.CheckAsync(root).GetAwaiter().GetResult();
         Assert(updater.Status.Phase=="available" && updater.Status.ChangedFiles==1 && updater.Status.DownloadBytes==app.Length,"Wrong incremental plan: "+updater.Status.Message);
         updater.PrepareAsync(root,Path.Combine(root,"Data")).GetAwaiter().GetResult();

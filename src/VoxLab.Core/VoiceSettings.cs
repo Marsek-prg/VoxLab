@@ -9,6 +9,10 @@ public sealed record VoiceSettings
     public double InputGain { get; init; }
     public double OutputGain { get; init; } = -3;
     public double HighpassHz { get; init; } = 75;
+    public bool HighpassEnabled { get; init; } = true;
+    public bool EqualizerEnabled { get; init; } = true;
+    public bool DeEsserEnabled { get; init; } = true;
+    public bool LimiterEnabled { get; init; } = true;
     public double Bass { get; init; }
     public double Mid { get; init; }
     public double Treble { get; init; }
@@ -41,6 +45,11 @@ public sealed record VoiceSettings
     public double TremoloRate { get; init; } = 8;
     public double FlangerMix { get; init; }
     public double FlangerRate { get; init; } = .35;
+
+    public VoiceSettings WithoutStudioProcessing() => this with {
+        HighpassEnabled=false, GateEnabled=false, EqualizerEnabled=false,
+        DeEsserEnabled=false, CompressorEnabled=false, LimiterEnabled=false
+    };
 
     public VoiceSettings Validate() => this with
     {

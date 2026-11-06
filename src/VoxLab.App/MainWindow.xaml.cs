@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private readonly UpdateService updater=new();
     private bool capturingHotkey;
     private bool ready, closing, busy, faultHandled;
+    internal bool ExitRequested { get; set; }
     private IntPtr handle;
 
     public MainWindow(string[] args)
@@ -49,8 +50,9 @@ public partial class MainWindow : Window
             HwndSource.FromHwnd(handle)?.AddHook(WindowMessage);
             ConfigureHotkeys();
         };
-        Closing+=(_,_)=>
+        Closing+=(_,e)=>
         {
+            if(!ExitRequested && tray?.Visible==true) { e.Cancel=true; Hide(); return; }
             closing=true; meterTimer.Stop(); saveTimer.Stop();
             foreach(int id in registeredKeys) UnregisterHotKey(handle,id);
             engine.Dispose(); tray?.Dispose(); updater.Dispose();
@@ -73,7 +75,7 @@ public partial class MainWindow : Window
             }
         };
         saveTimer.Tick+=(_,_)=> { saveTimer.Stop(); try { ProfileStore.Save(profile); } catch(Exception ex) { Notify("Настройки не сохранены: "+ex.Message,true); } };
-        engine.Update(profile.Settings);
+        ApplyAudioSettings();
     }
 
     private async Task InitializeBrowser()
@@ -109,12 +111,18 @@ public partial class MainWindow : Window
         var menu=new Forms.ContextMenuStrip();
         menu.Items.Add("Открыть VoxLab",null,(_,_)=>Dispatcher.Invoke(RestoreWindow));
         menu.Items.Add("Выключить / включить микрофон",null,(_,_)=>Dispatcher.Invoke(()=> { engine.Muted=!engine.Muted; SendState(); }));
+        var finishRecording=menu.Items.Add("Завершить запись WAV",null,(_,_)=>Dispatcher.Invoke(()=> {
+            try { engine.StopRecording(); } catch(Exception ex) { Notify(ex.Message,true); } SendState();
+        }));
+        menu.Opening+=(_,_)=>finishRecording.Visible=engine.IsRecording;
         menu.Items.Add("Остановить обработку",null,(_,_)=>Dispatcher.Invoke(()=> { engine.Stop(); SendState(); }));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Выйти",null,(_,_)=>Dispatcher.Invoke(Close));
+        menu.Items.Add("Выйти из VoxLab",null,(_,_)=>Dispatcher.Invoke(ExitApplication));
         tray.ContextMenuStrip=menu; tray.DoubleClick+=(_,_)=>Dispatcher.Invoke(RestoreWindow);
     }
-    private void RestoreWindow() { Show(); WindowState=WindowState.Normal; Activate(); }
+    internal void RestoreWindow() { Show(); if(WindowState==WindowState.Minimized) WindowState=WindowState.Normal; Activate(); }
+    private void ExitApplication() { ExitRequested=true; Close(); }
+    private void ApplyAudioSettings()=>engine.Update(profile.Settings,profile.StudioProcessing);
 
     private async void OnMessage(object? sender,CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -133,8 +141,13 @@ public partial class MainWindow : Window
                     else if(arguments.Contains("--performance")) await RunPerformance();
                     break;
                 case "settings":
-                    var settings=data.Deserialize<VoiceSettings>(ProfileStore.Json)?.Validate() ?? new();
-                    profile=profile with { Settings=settings }; engine.Update(settings); SaveSoon(); break;
+                    string editId=data.GetProperty("presetId").GetString()!;
+                    var settings=data.GetProperty("settings").Deserialize<VoiceSettings>(ProfileStore.Json) ?? new();
+                    profile=profile.Remember(editId,settings); if(editId==profile.PresetId) ApplyAudioSettings(); SaveSoon();
+                    Send("settingsAck",new { presetId=editId, sequence=data.GetProperty("sequence").GetInt64() }); break;
+                case "resetPreset": ApplyPreset(profile.PresetId,true); break;
+                case "studioProcessing":
+                    profile=profile with { StudioProcessing=data.GetBoolean() }; ApplyAudioSettings(); SaveSoon(); SendState(); break;
                 case "preset": ApplyPreset(data.GetString()!); break;
                 case "start": await StartEngine(); break;
                 case "stop": engine.Stop(); SendState(); break;
@@ -151,6 +164,7 @@ public partial class MainWindow : Window
                 case "savePreset": SavePreset(data.GetString()); break;
                 case "deletePreset":
                     string? id=data.GetString(); profile.CustomPresets.RemoveAll(x=>x.Id==id); profile.Favorites.RemoveAll(x=>x==id);
+                    if(id!=null) profile.VoiceEdits.Remove(id);
                     profile.HotkeyBindings.RemoveAll(x=>x.Action=="preset" && x.PresetId==id); ConfigureHotkeys();
                     if(profile.PresetId==id) ApplyPreset("studio"); SaveSoon(); SendState(); break;
                 case "favorite":
@@ -170,9 +184,8 @@ public partial class MainWindow : Window
                 case "installUpdate":
                     if(engine.IsRecording || busy) throw new InvalidOperationException("Завершите запись и дождитесь запуска звука перед обновлением.");
                     ProfileStore.Save(profile); engine.Stop(); SendState();
-                    await updater.LaunchInstallerAsync(); Close(); break;
+                    await updater.LaunchInstallerAsync(); ExitApplication(); break;
                 case "releases": Process.Start(new ProcessStartInfo("https://github.com/Marsek-prg/VoxLab/releases") { UseShellExecute=true }); break;
-                case "tray": Hide(); break;
                 case "soundSettings": Process.Start(new ProcessStartInfo("ms-settings:sound") { UseShellExecute=true }); break;
                 case "microphoneSettings": Process.Start(new ProcessStartInfo("ms-settings:privacy-microphone") { UseShellExecute=true }); break;
                 case "openRecordings": OpenRecordings(); break;
@@ -210,13 +223,9 @@ public partial class MainWindow : Window
         catch(Exception ex) { Notify("Не удалось запустить звук: "+ex.Message,true); SendState(); }
         finally { busy=false; Send("busy",false); }
     }
-    private void ApplyPreset(string id)
+    private void ApplyPreset(string id,bool reset=false)
     {
-        var preset=PresetLibrary.All.Concat(profile.CustomPresets).FirstOrDefault(x=>x.Id==id);
-        if(preset==null) return;
-        // Keep input/output gain consistent when auditioning characters.
-        var settings=preset.Settings with { InputGain=profile.Settings.InputGain, OutputGain=profile.Settings.OutputGain };
-        profile=profile with { PresetId=id,Settings=settings }; engine.Update(settings); SaveSoon(); SendState();
+        profile=profile.SelectVoice(id,reset); ApplyAudioSettings(); SaveSoon(); SendState();
     }
     private void SavePreset(string? name)
     {
@@ -261,7 +270,8 @@ public partial class MainWindow : Window
     private void SaveSoon() { saveTimer.Stop(); saveTimer.Start(); }
     private void SendState()
     {
-        Send("state",new { profile,presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version=UpdateService.CurrentVersion });
+        if(tray!=null) tray.Text=engine.IsRecording ? "VoxLab · идёт запись WAV" : engine.IsRunning ? (engine.Muted ? "VoxLab · выход заглушён" : "VoxLab · голос включён") : "VoxLab · обработка остановлена";
+        Send("state",new { profile=new {profile.PresetId,profile.Settings,profile.Route,profile.Favorites,profile.CustomPresets,profile.HotkeysEnabled,profile.HotkeyBindings,profile.StudioProcessing},presets=PresetLibrary.All, running=engine.IsRunning, bypass=engine.Bypass, muted=engine.Muted, recording=engine.IsRecording, hotkeyFailures, version=UpdateService.CurrentVersion });
         if(IsVisible && WindowState!=WindowState.Minimized) Send("meter",engine.MeterSnapshot());
         meterTimer.Interval=TimeSpan.FromMilliseconds(engine.IsRunning ? 60 : 1000);
     }
@@ -323,7 +333,7 @@ public partial class MainWindow : Window
                     ApplyPreset(presets[(current+presets.Count+(binding.Action=="next"?1:-1))%presets.Count].Id); break;
                 case "strengthUp": case "strengthDown":
                     var settings=(profile.Settings with { EffectStrength=profile.Settings.EffectStrength+(binding.Action=="strengthUp"?10:-10) }).Validate();
-                    profile=profile with { Settings=settings }; engine.Update(settings); SaveSoon(); break;
+                    profile=profile.Remember(profile.PresetId,settings); ApplyAudioSettings(); SaveSoon(); break;
             }
             SendState();
         }
@@ -363,6 +373,15 @@ public partial class MainWindow : Window
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#quick-pitch').value='3.5';document.querySelector('#quick-pitch').dispatchEvent(new Event('input',{bubbles:true}))");
             await Task.Delay(150);
             results.Add(new { test="slider-through-bridge",passed=profile.Settings.Pitch==3.5 });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#quick-tone').value='-100';document.querySelector('#quick-tone').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-preset=feminine]').click();document.querySelector('[data-preset=robot]').click()");
+            await Task.Delay(160);
+            results.Add(new { test="rapid-switch-retains-sliders",passed=profile.PresetId=="robot" && profile.Settings.Pitch==3.5 && profile.Settings.Tone==-100 });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.nav-item[data-page=rack]').click();document.querySelector('#studioSwitch').click()");
+            await Task.Delay(100);
+            results.Add(new { test="studio-master-through-bridge",passed=!profile.StudioProcessing && await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-toggle=limiterEnabled]').disabled && document.querySelector('#rack-deEsser').disabled")=="true" });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.nav-item[data-page=voices]').click();document.querySelector('[data-preset=feminine]').click();document.querySelector('[data-preset=robot]').click()");
+            await Task.Delay(100);
+            results.Add(new { test="global-studio-bypass-survives-preset",passed=!profile.StudioProcessing });
             await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-action=saveDialog]').click();document.querySelector('#presetName').value='Integration test';document.querySelector('#saveForm button[value=save]').click()");
             await Task.Delay(150);
             results.Add(new { test="save-preset-through-dialog",passed=profile.CustomPresets.Any(p=>p.Name=="Integration test" && p.Settings.Pitch==3.5) });
@@ -396,6 +415,18 @@ public partial class MainWindow : Window
             await Task.Delay(80);
             results.Add(new { test="escape-restores-native-hotkeys",passed=!capturingHotkey && registeredKeys.Contains(111) });
             results.Add(new { test="preferences-no-horizontal-overflow",passed=await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#workspace').scrollWidth <= document.querySelector('#workspace').clientWidth && document.querySelectorAll('.hotkey-row').length===12")=="true" });
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.nav-item[data-page=voices]').click();document.querySelector('[data-preset=robot]').click()");
+            await Task.Delay(120);
+            await Web.CoreWebView2.ExecuteScriptAsync("document.querySelector('#inspector [data-action=resetPreset]').click()");
+            await Task.Delay(100);
+            results.Add(new { test="reset-selected-voice-only",passed=profile.Settings==PresetLibrary.All.First(p=>p.Id=="robot").Settings && profile.CustomPresets.Any(p=>p.Settings.Pitch==3.5) });
+            Close(); results.Add(new { test="close-hides-in-tray",passed=!IsVisible && !closing && tray?.Visible==true });
+            var launch=new ProcessStartInfo(Environment.ProcessPath!) {UseShellExecute=false,WindowStyle=ProcessWindowStyle.Hidden};
+            launch.ArgumentList.Add("--data-dir");launch.ArgumentList.Add(AppPaths.Data);
+            using(var second=Process.Start(launch)!) await second.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            await Task.Delay(180);
+            results.Add(new { test="second-launch-restores-hidden-window",passed=IsVisible && !closing });
+            if(!IsVisible) RestoreWindow();
             File.WriteAllText(Path.Combine(AppPaths.Data,"integration.json"),JsonSerializer.Serialize(results,ProfileStore.Json));
             ApplyPreset("studio"); engine.Muted=false; engine.Bypass=false; SendState();
         }
@@ -412,7 +443,7 @@ public partial class MainWindow : Window
         }
         var result=await Web.CoreWebView2.ExecuteScriptAsync("JSON.stringify({title:document.title,cards:document.querySelectorAll('.preset-card').length,bridge:!!window.chrome.webview,overflow:document.documentElement.scrollWidth>innerWidth})");
         File.WriteAllText(Path.Combine(AppPaths.Data,"ui-smoke.json"),result);
-        if(arguments.Contains("--exit-after-smoke")) Close();
+        if(arguments.Contains("--exit-after-smoke")) ExitApplication();
     }
     [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd,int id,uint modifiers,uint key);
     [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd,int id);

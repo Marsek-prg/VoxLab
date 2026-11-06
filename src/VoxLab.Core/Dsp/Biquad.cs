@@ -4,6 +4,7 @@ namespace VoxLab.Core.Dsp;
 internal sealed class Biquad
 {
     private double b0=1, b1, b2, a1, a2, z1, z2;
+    public void Clear() { z1=z2=0; }
     public float Process(float input)
     {
         double output=b0*input+z1;

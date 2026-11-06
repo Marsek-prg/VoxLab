@@ -67,7 +67,8 @@ const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','
 const colors={sage:'#c5d7a3',sand:'#e3c79b',rose:'#d8aebc',sky:'#a5c9da',peach:'#e8b794',lime:'#c5f277'};
 const native = !!window.chrome?.webview;
 let state = {profile:{settings:{},route:{},customPresets:[],favorites:[],presetId:'studio',hotkeysEnabled:true},presets:[],running:false,bypass:false,muted:false,recording:false};
-let page='voices', category='Все', search='', pendingSettings, busy=false, waveform=Array(128).fill(0), lastRecordingError='';
+let page='voices', category='Все', search='', busy=false, waveform=Array(128).fill(0), lastRecordingError='';
+const pendingEdits=new Map(), previewEdits=new Map(); let editSequence=0;
 const parameters = {
   effectStrength:['Сила эффекта',0,200,1,'%','Чисто','Сильнее'],radioAmount:['Количество рации',0,100,1,'%'],
   crushMix:['Цифровой хруст',0,100,1,'%'],crushBits:['Разрядность',3,16,1,'bit'],crushRate:['Частота оцифровки',1500,24000,100,'Hz'],
@@ -86,15 +87,17 @@ const modules=[
   {title:'Характер голоса',icon:'wave',desc:'Высота и окраска — независимо от скорости речи.',keys:['effectStrength','pitch','tone']},
   {title:'Нойзгейт',icon:'filter',toggle:'gateEnabled',desc:'Убирает тихий фон в паузах. Гистерезис 4 dB защищает от дребезга.',keys:['gateThreshold','gateAttackMs','gateHoldMs','gateReleaseMs'],meter:'gate'},
   {title:'Компрессор',icon:'gauge',toggle:'compressorEnabled',desc:'Выравнивает громкость речи. Мягкое колено 6 dB.',keys:['compressorThreshold','compressorRatio','compressorAttackMs','compressorReleaseMs','compressorMakeup'],meter:'compressor'},
-  {title:'Эквалайзер',icon:'sliders',desc:'Уберите гул, подчеркните тело и разборчивость.',keys:['highpassHz','bass','mid','treble']},
-  {title:'Деэссер',icon:'shield',desc:'Смягчает резкие «с» и «ш» в диапазоне выше 5,2 кГц.',keys:['deEsser']},
+  {title:'Эквалайзер',icon:'sliders',desc:'Уберите гул, подчеркните тело и разборчивость.',toggle:'equalizerEnabled',keys:['bass','mid','treble']},
+  {title:'Фильтр низких частот',toggle:'highpassEnabled',desc:'Убирает гул и вибрацию ниже выбранной частоты.',keys:['highpassHz'],icon:'filter'},
+  {title:'Деэссер',toggle:'deEsserEnabled',icon:'shield',desc:'Смягчает резкие «с» и «ш» в диапазоне выше 5,2 кГц.',keys:['deEsser']},
   {title:'Робот',icon:'robot',desc:'Кольцевая модуляция для металлических обертонов.',keys:['robotMix','robotFrequency']},
   {title:'Эхо',icon:'wave',desc:'Повторы с управляемой задержкой и обратной связью.',keys:['echoMix','echoDelayMs','echoFeedback']},
   {title:'Пространство',icon:'orbit',desc:'Реверберация комнаты и плавный многослойный хор.',keys:['reverbMix','chorusMix']},
   {title:'Цифровой хруст',icon:'cpu',desc:'Биткрашер и снижение частоты для голоса старой приставки.',keys:['crushMix','crushBits','crushRate']},
   {title:'Тремоло',icon:'gauge',desc:'Ритмически меняет громкость — от лёгкой дрожи до глубоких провалов.',keys:['tremoloMix','tremoloRate']},
   {title:'Флэнжер',icon:'orbit',desc:'Плавающая короткая задержка с обратной связью для текучего звука.',keys:['flangerMix','flangerRate']},
-  {title:'Характер и защита',icon:'radio',desc:'Сатурация и радиофильтр. Лимитер всегда защищает выход.',keys:['radioAmount','drive','inputGain','outputGain'],radio:true,limiter:true}
+  {title:'Лимитер',icon:'shield',toggle:'limiterEnabled',desc:'Сглаживает пики до −0,45 dBFS. При отключении остаётся только жёсткий предел цифрового выхода 0 dBFS.',keys:[]},
+  {title:'Усиление и рация',icon:'radio',desc:'Уровни тракта, насыщение и полоса рации.',keys:['radioAmount','drive','inputGain','outputGain'],radio:true}
 ];
 
 function send(action,data=null){
@@ -102,10 +105,12 @@ function send(action,data=null){
   // This preview never pretends to process microphone audio.
   if(action==='preset'){
     const p=allPresets().find(x=>x.id===data);if(!p)return;
-    state.profile.presetId=data;state.profile.settings={...p.settings,inputGain:state.profile.settings.inputGain,outputGain:state.profile.settings.outputGain};renderState();
+    state.profile.presetId=data;state.profile.settings={...(previewEdits.get(p.id)||p.settings)};renderState();
   }else if(action==='favorite'){
     const f=state.profile.favorites;const i=f.indexOf(data);if(i>=0)f.splice(i,1);else f.push(data);renderGrid();
-  }else if(action==='settings'){state.profile.settings=data;updateEdited();}
+  }else if(action==='settings'){previewEdits.set(data.presetId,{...data.settings});updateEdited();}
+  else if(action==='studioProcessing'){state.profile.studioProcessing=data;renderRack();}
+  else if(action==='resetPreset'){previewEdits.delete(state.profile.presetId);send('preset',state.profile.presetId);}
   else if(action==='savePreset'){
     const preset={id:'user-'+Date.now(),name:data,category:'Мои',description:'Ваши настройки голоса',detail:'Пользовательский пресет.',color:'sage',icon:'sliders',settings:{...state.profile.settings}};
     state.profile.customPresets.push(preset);state.profile.presetId=preset.id;renderState();toast('Пресет создан в текущем предпросмотре. В VoxLab.exe настройки сохраняются на диск.');
@@ -152,8 +157,8 @@ function renderGrid(){
 }
 function updateEdited(){
   const preset=selectedPreset();if(!preset)return;
-  const edited=Object.keys(preset.settings).some(key=>!['inputGain','outputGain'].includes(key)&&state.profile.settings[key]!==preset.settings[key]);
-  $('#editedBadge').hidden=!edited;
+  const edited=Object.keys(preset.settings).some(key=>state.profile.settings[key]!==preset.settings[key]);
+  $('#editedBadge').hidden=!edited;$$('[data-action=resetPreset]').forEach(el=>el.disabled=!edited);
 }
 function renderInspector(){
   const focus=rememberFocus();
@@ -173,6 +178,16 @@ function renderInspector(){
 function renderRack(){
   const focus=rememberFocus();
   $('#rackGrid').innerHTML=modules.map((module,i)=>`<section class="rack-module${module.toggle&&!state.profile.settings[module.toggle]?' disabled':''}" data-module="${module.toggle||''}"><div class="module-heading"><div class="module-title"><span>${icon(module.icon)}</span><h2>${module.title}</h2></div>${module.toggle?`<button class="switch" role="switch" aria-checked="${!!state.profile.settings[module.toggle]}" aria-label="${module.title}" data-toggle="${module.toggle}"></button>`:''}</div><p class="module-description">${module.desc}</p><div class="module-parameters">${module.keys.map(k=>parameterHtml(k,'rack')).join('')}</div>${module.radio?`<div class="module-bottom"><span>Радиофильтр · 500–2600 Гц</span><button class="switch" role="switch" aria-checked="${state.profile.settings.radio}" aria-label="Радиофильтр" data-toggle="radio"></button></div>`:''}${module.meter==='gate'?'<div class="module-bottom"><span>Состояние гейта</span><output id="gateState">—</output></div>':''}${module.meter==='compressor'?'<div class="module-bottom"><span>Сжатие сигнала</span><output id="compression">0 dB</output></div>':''}${module.limiter?'<div class="module-bottom"><span>Потолок лимитера</span><output>−0,45 dBFS</output></div>':''}</section>`).join('');
+  const studio=state.profile.studioProcessing!==false;
+  $('#studioSwitch').setAttribute('aria-checked',String(studio));
+  $('#studioStatus').textContent=studio?'Включена. Ниже можно выключить отдельные модули.':'Выключена для всех голосов. Высота, тембр и творческие эффекты продолжают работать.';
+  $$('.rack-module[data-module]').forEach(panel=>{
+    const key=panel.dataset.module;if(!key)return;
+    const off=!studio||!state.profile.settings[key];
+    panel.classList.toggle('disabled',off);
+    const button=panel.querySelector('[data-toggle]');if(button)button.disabled=!studio;
+    panel.querySelectorAll('input').forEach(el=>el.disabled=off);
+  });
   restoreFocus(focus);
 }
 let devices={inputs:[],outputs:[]};
@@ -232,12 +247,16 @@ function toast(text,error=false){
   $('#toasts').append(element);setTimeout(()=>element.remove(),error?16000:6500);
   while($('#toasts').children.length>3)$('#toasts').firstElementChild.remove();
 }
-function flushSettings(){clearTimeout(pendingSettings);send('settings',{...state.profile.settings});}
+function commitSettings(){
+  const edit={presetId:state.profile.presetId,sequence:++editSequence,settings:{...state.profile.settings}};
+  if(native)pendingEdits.set(edit.presetId,edit);
+  send('settings',edit);
+}
 function changeParameter(key,value){
   const [,min,max]=parameters[key];value=Math.max(min,Math.min(max,Number(value)));state.profile.settings[key]=value;
   $$(`[data-param="${key}"]`).forEach(el=>{el.value=value;el.setAttribute('aria-valuetext',format(key,value));});
   $$(`[data-value="${key}"]`).forEach(el=>el.textContent=format(key,value));updateEdited();
-  clearTimeout(pendingSettings);pendingSettings=setTimeout(flushSettings,40);
+  commitSettings();
 }
 function onMeter(data){
   const changed=state.running!==data.running||state.muted!==data.muted||state.bypass!==data.bypass||state.recording!==data.recording;
@@ -249,8 +268,8 @@ function onMeter(data){
   });
   $('#sampleRate').textContent=state.running?(data.sampleRate/1000).toFixed(1).replace('.0','')+' кГц':'— кГц';
   $('#latency').textContent='~ '+(state.running?data.estimatedLatencyMs:'—')+' мс';
-  $('#underruns').textContent=data.underruns;$('#dspLoad').textContent=data.dspLoad+'%';
-  if($('#gateState'))$('#gateState').textContent=state.running?(data.gateOpen?'Открыт':'Закрыт'):'—';
+  $('#overruns').textContent=data.overruns??0;$('#bufferedMs').textContent=(data.bufferedMs??0)+' мс';$('#underruns').textContent=data.underruns;$('#dspLoad').textContent=data.dspLoad+'%';
+  if($('#gateState'))$('#gateState').textContent=state.profile.studioProcessing===false||!state.profile.settings.gateEnabled?'Выключен':state.running?(data.gateOpen?'Пропускает':'Ослабляет'):'—';
   if($('#compression'))$('#compression').textContent=(state.running?data.gainReduction.toFixed(1):'0')+' dB';
   if(state.recording){const time=duration(data.recordingSeconds);$('#recordTime').textContent=time;$('#recordSmallTime').textContent=time;}
   if(data.recordingError&&data.recordingError!==lastRecordingError){toast(data.recordingError,true);lastRecordingError=data.recordingError;}
@@ -272,20 +291,21 @@ document.addEventListener('click',event=>{
   const target=event.target.closest('button,a');if(!target)return;
   if(target.dataset.page){showPage(target.dataset.page);return;}
   if(target.classList.contains('brand')){event.preventDefault();showPage('voices');return;}
-  if(target.dataset.preset){clearTimeout(pendingSettings);send('preset',target.dataset.preset);return;}
+  if(target.dataset.preset){send('preset',target.dataset.preset);return;}
   if(target.dataset.favorite){send('favorite',target.dataset.favorite);return;}
   if(target.dataset.category){category=target.dataset.category;renderGrid();return;}
-  if(target.dataset.toggle){const key=target.dataset.toggle;state.profile.settings[key]=!state.profile.settings[key];renderRack();flushSettings();updateEdited();return;}
+  if(target.dataset.toggle){const key=target.dataset.toggle;state.profile.settings[key]=!state.profile.settings[key];renderRack();commitSettings();updateEdited();return;}
   const action=target.dataset.action;if(!action)return;
-  if(action==='start'){flushSettings();if(state.running)send('stop');else if(!state.profile.route.inputId||!state.profile.route.outputId){showPage('routing');toast('Выберите микрофон и выход, затем запустите голос.');}else send('start');}
+  if(action==='start'){if(state.running)send('stop');else if(!state.profile.route.inputId||!state.profile.route.outputId){showPage('routing');toast('Выберите микрофон и выход, затем запустите голос.');}else send('start');}
   else if(action==='favorites'||action==='myPresets'){category=action==='favorites'?'Избранное':'Мои';showPage('voices');renderGrid();}
   else if(action==='clearFilter'){category='Все';search='';$('#search').value='';renderGrid();}
-  else if(action==='resetPreset'){clearTimeout(pendingSettings);send('preset',state.profile.presetId);}
+  else if(action==='resetPreset'){send('resetPreset');}
   else if(action==='saveDialog'){$('#presetName').value='';$('#saveDialog').showModal();$('#presetName').focus();}
+  else if(action==='studioProcessing'){send('studioProcessing',state.profile.studioProcessing===false);}
   else if(action==='monitorToggle'){send('route',{...state.profile.route,monitorEnabled:!state.profile.route.monitorEnabled});}
   else if(action==='hotkeys'){send('hotkeys',!state.profile.hotkeysEnabled);}
   else if(action==='deletePreset'){send('deletePreset',state.profile.presetId);}
-  else{if(['exportPreset','record'].includes(action))flushSettings();send(action);}
+  else{send(action);}
 });
 document.addEventListener('input',event=>{
   const target=event.target;
@@ -300,7 +320,7 @@ document.addEventListener('change',event=>{
 $('#saveForm').addEventListener('submit',event=>{
   if(event.submitter?.value==='cancel')return;
   const name=$('#presetName').value.trim();if(!name){event.preventDefault();$('#presetName').focus();return;}
-  flushSettings();send('savePreset',name);
+  send('savePreset',name);
 });
 window.addEventListener('resize',drawScope);
 hydrateIcons(document);
@@ -312,7 +332,8 @@ $$('.nav-item').forEach(button=>{
 if(native){
   window.chrome.webview.addEventListener('message',event=>{
     const {type,data}=event.data;
-    if(type==='state'){state=data;renderState();}
+    if(type==='state'){state=data;const edit=pendingEdits.get(state.profile.presetId);if(edit)state.profile.settings={...edit.settings};renderState();}
+    else if(type==='settingsAck'){if(pendingEdits.get(data.presetId)?.sequence===data.sequence)pendingEdits.delete(data.presetId);}
     else if(type==='hotkeysSaved'){hotkeyDraft=null;renderPreferences();toast('Сочетания сохранены.');}
     else if(type==='update')renderUpdate(data);
     else if(type==='updateResult'){$('#updateResult').hidden=false;$('#updateResult').textContent=data.message;}

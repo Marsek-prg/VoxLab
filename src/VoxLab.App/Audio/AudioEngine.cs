@@ -30,6 +30,7 @@ public sealed class AudioEngine : IDisposable
     private float monitorVolume=.25f;
     private RouteSettings route=new();
     private int sampleRate=48000;
+    private WaveFormat? inputFormat;
     private double dspLoad;
     public bool IsRunning=>running;
     public bool Bypass { get=>bypass; set=>bypass=value; }
@@ -54,7 +55,7 @@ public sealed class AudioEngine : IDisposable
         }).ToArray();
     }
 
-    public void Update(VoiceSettings value)=>Volatile.Write(ref settings,value.Validate());
+    public void Update(VoiceSettings value,bool studioProcessing=true)=>Volatile.Write(ref settings,(studioProcessing ? value : value.WithoutStudioProcessing()).Validate());
     public void SetMonitorVolume(double percent)=>monitorVolume=(float)Math.Clamp(percent/100,0,1);
 
     public void Start(RouteSettings value)
@@ -81,7 +82,8 @@ public sealed class AudioEngine : IDisposable
             if(inputDevice.DataFlow!=DataFlow.Capture || outputDevice.DataFlow!=DataFlow.Render)
                 throw new InvalidOperationException("Неверный тип аудиоустройства. Обновите список устройств.");
             capture=new WasapiCapture(inputDevice,true,route.LatencyMs);
-            sampleRate=capture.WaveFormat.SampleRate;
+            inputFormat=capture.WaveFormat;
+            sampleRate=inputFormat.SampleRate;
             if(capture.WaveFormat.Encoding!=WaveFormatEncoding.IeeeFloat && capture.WaveFormat.Encoding!=WaveFormatEncoding.Pcm)
                 throw new InvalidOperationException("Формат микрофона не поддерживается. В Windows выберите PCM 16/24/32 бит.");
             if(capture.WaveFormat.BitsPerSample is not (16 or 24 or 32))
@@ -111,11 +113,11 @@ public sealed class AudioEngine : IDisposable
 
     private void OnPlaybackStopped(object? sender,StoppedEventArgs args)
     {
-        if(!stopping) { lastError=args.Exception?.Message ?? "Аудиовыход остановлен. Проверьте подключение устройства и запустите снова."; running=false; }
+        if(!stopping && (ReferenceEquals(sender,output)||ReferenceEquals(sender,monitor))) { lastError=args.Exception?.Message ?? "Аудиовыход остановлен. Проверьте подключение устройства и запустите снова."; running=false; }
     }
     private void OnCaptureStopped(object? sender,StoppedEventArgs args)
     {
-        if(!stopping) { lastError=args.Exception?.Message ?? "Микрофон отключён. Обновите список устройств и запустите снова."; running=false; }
+        if(!stopping && ReferenceEquals(sender,capture)) { lastError=args.Exception?.Message ?? "Микрофон отключён. Обновите список устройств и запустите снова."; running=false; }
     }
 
     private void OnData(object? sender,WaveInEventArgs args)
@@ -126,11 +128,11 @@ public sealed class AudioEngine : IDisposable
         {
             lock(processingLock)
             {
-                if(!running || processor==null) return;
+                if(!running || processor==null || inputFormat==null || !ReferenceEquals(sender,capture)) return;
                 var current=Volatile.Read(ref settings);
                 if(!ReferenceEquals(current,applied)) { processor.Apply(current); applied=current; }
                 processor.Bypass=bypass; processor.Muted=muted;
-                WaveFormat format=capture.WaveFormat;
+                WaveFormat format=inputFormat;
                 int frames=args.BytesRecorded/format.BlockAlign;
                 int bytesPerSample=format.BitsPerSample/8;
                 for(int start=0;start<frames;start+=decoded.Length)
@@ -193,6 +195,7 @@ public sealed class AudioEngine : IDisposable
                 gateOpen=processor?.GateOpen ?? false,
                 clippedSamples=processor?.ClippedInputSamples ?? 0,
                 underruns=mainBuffer?.Underruns ?? 0, overruns=mainBuffer?.Overruns ?? 0,
+                bufferedMs=Math.Round(mainBuffer?.BufferedMilliseconds ?? 0),
                 dspLoad=Math.Round(dspLoad,1),sampleRate,
                 estimatedLatencyMs=running ? Math.Round((processor?.AlgorithmLatencyMs ?? 0)+(mainBuffer?.BufferedMilliseconds ?? 0)+route.LatencyMs*2) : 0,
                 waveform=running ? (float[])scope.Clone() : new float[128],
@@ -203,20 +206,28 @@ public sealed class AudioEngine : IDisposable
 
     public void StartRecording(string path)
     {
-        lock(processingLock)
+        lock(lifecycleLock)
         {
             if(!running) throw new InvalidOperationException("Сначала запустите обработку микрофона.");
-            if(recording!=null) return;
-            recording=new RecordingSession(path,sampleRate); LastRecordingPath=path;
+            lock(processingLock) { if(recording!=null) return; }
+            // Opening a WAV on a slow drive must not occupy the callback's lock.
+            var session=new RecordingSession(path,sampleRate);
+            lock(processingLock) {
+                if(running) { recording=session; LastRecordingPath=path; return; }
+            }
+            session.Dispose();
+            throw new InvalidOperationException("Аудиоустройство отключилось до начала записи.");
         }
     }
     public string? StopRecording()
     {
-        RecordingSession? session;
-        lock(processingLock) { session=recording; recording=null; }
-        if(session==null) return null;
-        session.Dispose(); if(session.Error!=null) throw new IOException(session.Error);
-        return session.Path;
+        lock(lifecycleLock) {
+            RecordingSession? session;
+            lock(processingLock) { session=recording; recording=null; }
+            if(session==null) return null;
+            session.Dispose(); if(session.Error!=null) throw new IOException(session.Error);
+            return session.Path;
+        }
     }
     public void Stop()
     {

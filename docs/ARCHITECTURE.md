@@ -11,7 +11,7 @@
 
 Native endpoint PCM16/24/32 or IEEE float → selected channel / mono downmix → smoothed input gain → high-pass → hysteresis gate → bass/mid/treble & tone EQ → split-band de-esser → RMS soft-knee compressor → SoundTouch pitch (when nonzero) → ring modulation → saturation → optional cascaded radio band + in-band saturation → sample/bit crusher → tremolo → feedback flanger → dual delay chorus → echo → Schroeder reverb → smoothed output gain → instantaneous-attack/releasing limiter (0.95 ceiling) → mute → independent output and monitor queues; processed WAV recording taps before monitor gain.
 
-The pitch stage changes pitch without changing intended sample duration. Its block output is bursty, so output queues prebuffer. Input and output endpoints have independent clocks. A half-second bounded queue drops oldest data if full instead of accumulating unbounded latency. Underruns zero-fill and re-prime; counters are surfaced to the user. This is bounded recovery, not a precision drift-compensating asynchronous resampler.
+The pitch stage changes pitch without changing intended sample duration. Its block output is bursty, so output queues prebuffer. Input and output endpoints have independent clocks. A half-second bounded queue drops oldest data if full instead of accumulating unbounded latency. Underruns zero-fill and re-prime; counters are surfaced to the user. Each output follows its own clock using a one-second smoothed fill level and fractional interpolation (up to ±0.3%). Starvation increases the recovery reserve, capped at 120 ms. Clock correction never touches recorded WAV samples.
 
 ## Threading
 
@@ -27,7 +27,7 @@ Portable 0.1.1 keeps only `VoxLab.exe`, a short readme, `App` and (after first l
 
 Settings are written atomically to `Data/profile.json` beside the executable. The WebView2 user-data folder and default recording directory also live under `Data`, keeping the application portable. Import size and counts are bounded; all numerical DSP parameters are clamped and NaN/Infinity are sanitized. User strings render as text or escaped HTML. The WebView can navigate only to the mapped `https://voxlab.local` origin; new windows and web permissions are denied. A CSP prevents external scripts/resources. Bridge commands are an explicit allowlist; no command executes user-supplied shell text. File destinations are chosen through Windows dialogs.
 
-The app has no telemetry, automatic updater, login, model downloader, microphone autostart or persistent background service. The native host captures audio; browser microphone permission is unnecessary. `--data-dir` isolates automated tests from real user preferences.
+The app has a user-initiated GitHub updater and no telemetry, login, model downloader, microphone autostart or persistent background service. The native host captures audio; browser microphone permission is unnecessary. `--data-dir` isolates automated tests from real user preferences.
 
 The original VB-CABLE ZIP is shipped as an independent, unmodified package. The application only opens its location in Explorer; it never launches its installer, requests elevation for it, or accepts its terms. A Windows driver installation is separate from the portable application and persists beyond its deletion.
 
@@ -42,3 +42,9 @@ Do not advertise a latency number as a physical measurement until a loopback rou
 `Hotkeys.cs` validates saved actions, key ranges, modifiers and duplicate chords. `RegisterHotKey` uses MOD_NOREPEAT. Capture temporarily releases OS registrations; blur/Escape restores them. Dispatch maps registration IDs to immutable bindings. JSON profiles without bindings receive the original defaults; an intentionally empty list remains empty.
 
 `UpdateService` reads the public GitHub stable release only on explicit user action. It bounds and validates manifests, safe relative paths, sizes and SHA-256, refuses reparse ancestors, and downloads only required content-addressed components. A verified payload and JSON plan are staged under Data/Updates. The separate Windows PowerShell helper acquires an exclusive installation lock, acknowledges readiness, waits for the originating PID/start time, backs up and atomically replaces changed files, rolling back applied changes on failure. No secrets, elevation, driver installation or background scheduler. Tests cover service requests through an injected transport and actual helper transactions on Windows PowerShell 5.1.
+
+## 0.2.1: level stability, editing and window lifetime
+
+The gate uses downward expansion below its closing threshold. The compressor detects symmetric mean-square energy; attack, hold and release control gain. High-pass, gate, EQ, de-esser, compressor and limiter can be bypassed individually; the studio master excludes them across voices and leaves pitch, tone and character effects available. With the limiter off, only a final ±1 digital bound remains. Inactive spatial effects skip their delay/filter computations and clear tails on disable.
+
+Slider edits carry their preset ID and sequence. The native host remembers deviations per voice, coalesces disk writes and saves on exit. A late edit to an inactive voice cannot overwrite the selected voice. Reset removes only the chosen override. Older profiles seed their previously active voice. Normal close hides the window, leaving streams and recording alive. A per-profile named event restores the window on relaunch. Tray exit, installer restart and Windows session shutdown take the real exit path.

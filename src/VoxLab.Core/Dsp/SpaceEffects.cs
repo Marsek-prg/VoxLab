@@ -12,6 +12,7 @@ internal sealed class DelayLine(int length)
         return (float)(buffer[i]*(1-fraction)+buffer[(i+1)%buffer.Length]*fraction);
     }
     public void Write(float sample) { buffer[position]=sample; position=(position+1)%buffer.Length; }
+    public void Clear() { Array.Clear(buffer); position=0; }
 }
 
 internal sealed class Reverb
@@ -44,4 +45,5 @@ internal sealed class Reverb
         allpass2.Write(y1+.5f*y2);
         return y2;
     }
+    public void Clear() { foreach(var comb in combs) Array.Clear(comb); Array.Clear(indices); Array.Clear(damping); allpass1.Clear(); allpass2.Clear(); }
 }

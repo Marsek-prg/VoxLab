@@ -16,7 +16,10 @@ public sealed class VoiceProcessor
     private double gateEnvelope, gateGain=1, compEnvelope, compGain=1, deEssEnvelope, limiterGain=1;
     private double inGain=1, outGain=.708, robotPhase, chorusPhase, echoDelay;
     private int gateHold;
+    private int compHold, compHoldSamples,gateHoldSamples;
+    private double gatePeakRelease,rmsCoefficient;
     private bool gateOpen=true, previousBypass;
+    private bool configured,colorActive;
     private double gateAttack, gateRelease, compAttack, compRelease, smooth;
     private double targetIn, targetOut, gateOpenLevel, gateCloseLevel, makeup, robotWet, echoWet, echoFeedback, reverbWet, chorusWet, drive;
     private double radioWet,crushWet,crushScale,crushInterval,crushClock,tremoloWet,tremoloPhase,flangerWet,flangerPhase;
@@ -49,13 +52,24 @@ public sealed class VoiceProcessor
     public void Apply(VoiceSettings value)
     {
         var next=value.Effective();
+        if(configured && next==settings) return;
+        if(settings.HighpassEnabled!=next.HighpassEnabled) highpass.Clear();
+        if(settings.EqualizerEnabled!=next.EqualizerEnabled || next.Tone!=settings.Tone && next.Tone==0) { bass.Clear();mid.Clear();treble.Clear(); }
+        if(settings.DeEsserEnabled!=next.DeEsserEnabled) { sibilants.Clear();deEssEnvelope=0; }
+        if(chorusWet>0 && next.ChorusMix==0) chorus.Clear();
+        if(echoWet>0 && next.EchoMix==0) echo.Clear();
+        if(reverbWet>0 && next.ReverbMix==0) reverb.Clear();
+        if(flangerWet>0 && next.FlangerMix==0) flanger.Clear();
+        if(next.CrushMix==0) { crushHeld=0; crushClock=0; }
+        if(echoWet==0) echoDelay=next.EchoDelayMs*SampleRate/1000;
+        colorActive=next.Tone!=0 || next.EqualizerEnabled && (next.Bass!=0 || next.Mid!=0 || next.Treble!=0);
         if((Math.Abs(next.Pitch)<.001)!=(Math.Abs(settings.Pitch)<.001)) pitch.Clear();
-        settings=next;
-        pitch.PitchSemiTones=settings.Pitch;
+        if(!configured || settings.Pitch!=next.Pitch) pitch.PitchSemiTones=next.Pitch;
+        settings=next; configured=true;
         highpass.Configure("hp",settings.HighpassHz,0,SampleRate);
-        bass.Configure("low",180,settings.Bass-settings.Tone*.045,SampleRate);
-        mid.Configure("peak",1400,settings.Mid,SampleRate,.85);
-        treble.Configure("high",3600,settings.Treble+settings.Tone*.045,SampleRate);
+        bass.Configure("low",180,(settings.EqualizerEnabled?settings.Bass:0)-settings.Tone*.045,SampleRate);
+        mid.Configure("peak",1400,settings.EqualizerEnabled?settings.Mid:0,SampleRate,.85);
+        treble.Configure("high",3600,(settings.EqualizerEnabled?settings.Treble:0)+settings.Tone*.045,SampleRate);
         sibilants.Configure("hp",5200,0,SampleRate);
         radioHigh.Configure("hp",500,0,SampleRate); radioHigh2.Configure("hp",500,0,SampleRate);
         radioLow.Configure("lp",2600,0,SampleRate); radioLow2.Configure("lp",2600,0,SampleRate);
@@ -67,6 +81,10 @@ public sealed class VoiceProcessor
         gateOpenLevel=DbToLinear(settings.GateThreshold); gateCloseLevel=DbToLinear(settings.GateThreshold-4);
         gateAttack=Coefficient(settings.GateAttackMs); gateRelease=Coefficient(settings.GateReleaseMs);
         compAttack=Coefficient(settings.CompressorAttackMs); compRelease=Coefficient(settings.CompressorReleaseMs);
+        gatePeakRelease=Coefficient(18); rmsCoefficient=Coefficient(8);
+        gateHoldSamples=(int)(settings.GateHoldMs*SampleRate/1000); compHoldSamples=SampleRate*45/1000;
+        if(!settings.CompressorEnabled) { compGain=1; compEnvelope=0; compHold=0; GainReductionDb=0; }
+        if(!settings.LimiterEnabled) limiterGain=1;
         makeup=DbToLinear(settings.CompressorMakeup); smooth=Coefficient(12);
         robotWet=settings.RobotMix/100; echoWet=settings.EchoMix/100; echoFeedback=settings.EchoFeedback/100;
         reverbWet=settings.ReverbMix/100; chorusWet=settings.ChorusMix/100*.65; drive=settings.Drive/100;
@@ -110,33 +128,43 @@ public sealed class VoiceProcessor
 
     private float PreProcess(float input)
     {
-        float x=highpass.Process(input);
+        float x=settings.HighpassEnabled?highpass.Process(input):input;
         // Fast peak envelope for gate detection, with hysteresis and a hold window.
-        gateEnvelope=Math.Max(Math.Abs(x),gateEnvelope*.998);
-        if(gateEnvelope>=gateOpenLevel) { gateOpen=true; gateHold=(int)(settings.GateHoldMs*SampleRate/1000); }
-        else if(gateEnvelope<gateCloseLevel && --gateHold<=0) gateOpen=false;
-        double gateTarget=!settings.GateEnabled || gateOpen ? 1 : .0003;
+        gateEnvelope=Math.Max(Math.Abs(x),gateEnvelope*gatePeakRelease);
+        if(gateEnvelope>=gateOpenLevel) { gateOpen=true; gateHold=gateHoldSamples; }
+        else if(gateEnvelope<gateCloseLevel) { if(gateHold>0) gateHold--; else gateOpen=false; }
+        // Expand gradually below the closing threshold: retain quiet consonants
+        // near the threshold, while still attenuating a distant noise floor.
+        double tail=Math.Min(1,gateEnvelope/gateCloseLevel); tail*=tail;
+        double gateTarget=!settings.GateEnabled || gateOpen ? 1 : Math.Max(.0003,tail*tail);
         double gc=gateTarget>gateGain ? gateAttack : gateRelease;
         gateGain=gc*gateGain+(1-gc)*gateTarget;
-        x*=(float)gateGain;
-        x=treble.Process(mid.Process(bass.Process(x)));
-        float high=sibilants.Process(x);
-        deEssEnvelope=.995*deEssEnvelope+.005*high*high;
-        double essReduction=Math.Clamp((Math.Sqrt(deEssEnvelope)-.018)*12,0,.85)*settings.DeEsser/100;
-        x-=(float)(high*essReduction);
-        double squared=x*x, cc=squared>compEnvelope ? compAttack : compRelease;
-        compEnvelope=cc*compEnvelope+(1-cc)*squared;
+        if(settings.GateEnabled) x*=(float)gateGain;
+        if(colorActive) x=treble.Process(mid.Process(bass.Process(x)));
+        if(settings.DeEsserEnabled && settings.DeEsser>0) {
+            float high=sibilants.Process(x);
+            deEssEnvelope=.995*deEssEnvelope+.005*high*high;
+            double essReduction=Math.Clamp((Math.Sqrt(deEssEnvelope)-.018)*12,0,.85)*settings.DeEsser/100;
+            x-=(float)(high*essReduction);
+        }
+        if(!settings.CompressorEnabled) return x;
+        // Measure mean square symmetrically. Attack/release belong to the gain
+        // envelope, not the individual rising/falling halves of each waveform.
+        compEnvelope=rmsCoefficient*compEnvelope+(1-rmsCoefficient)*x*x;
         double over=10*Math.Log10(compEnvelope+1e-16)-settings.CompressorThreshold;
         const double knee=6;
         double reduction=over<-knee/2 ? 0 : over>knee/2 ? (1-1/settings.CompressorRatio)*over : (1-1/settings.CompressorRatio)*Math.Pow(over+knee/2,2)/(2*knee);
-        double desired=settings.CompressorEnabled ? DbToLinear(-reduction)*makeup : 1;
-        compGain=smooth*compGain+(1-smooth)*desired;
-        GainReductionDb=settings.CompressorEnabled ? reduction : 0;
-        return x*(float)compGain;
+        double desired=DbToLinear(-reduction);
+        if(desired<compGain) { compHold=compHoldSamples; compGain=compAttack*compGain+(1-compAttack)*desired; }
+        else if(compHold>0) compHold--;
+        else compGain=compRelease*compGain+(1-compRelease)*desired;
+        return x*(float)(compGain*makeup);
     }
 
     private void Finish(Span<float> samples)
     {
+        GainReductionDb=settings.CompressorEnabled && !Bypass ? -LinearToDb(compGain) : 0;
+        if(samples.IsEmpty) return; // A batched pitch callback has no new output meter reading.
         float peak=0; double energy=0;
         double limiterRelease=Coefficient(90);
         for(int i=0;i<samples.Length;i++)
@@ -144,9 +172,11 @@ public sealed class VoiceProcessor
             float x=samples[i];
             if(!Bypass)
             {
-                robotPhase+=2*Math.PI*settings.RobotFrequency/SampleRate;
-                if(robotPhase>2*Math.PI) robotPhase-=2*Math.PI;
-                x=(float)(x*(1-robotWet)+x*Math.Cos(robotPhase)*robotWet*1.6);
+                if(robotWet>0) {
+                    robotPhase+=2*Math.PI*settings.RobotFrequency/SampleRate;
+                    if(robotPhase>2*Math.PI) robotPhase-=2*Math.PI;
+                    x=(float)(x*(1-robotWet)+x*Math.Cos(robotPhase)*robotWet*1.6);
+                }
                 if(drive>0) x=(float)(Math.Tanh(x*(1+drive*9))/(1+drive*1.7));
                 if(radioWet>0)
                 {
@@ -172,20 +202,27 @@ public sealed class VoiceProcessor
                     float sweep=flanger.Read(SampleRate*(.0025+.002*Math.Sin(flangerPhase)));
                     flanger.Write(Math.Clamp(x+sweep*.35f,-2,2)); x=(float)(x*(1-flangerWet*.35)+sweep*flangerWet*.7);
                 }
-                chorusPhase+=2*Math.PI*.72/SampleRate; if(chorusPhase>2*Math.PI) chorusPhase-=2*Math.PI;
-                float doubled=(chorus.Read(SampleRate*(.014+.004*Math.Sin(chorusPhase)))+chorus.Read(SampleRate*(.021+.005*Math.Cos(chorusPhase*.83))))*.5f;
-                chorus.Write(x); x=(float)(x*(1-chorusWet*.4)+doubled*chorusWet);
-                echoDelay=.9995*echoDelay+.0005*settings.EchoDelayMs*SampleRate/1000;
-                float delayed=echo.Read(echoDelay); echo.Write(Math.Clamp(x+delayed*(float)echoFeedback,-4,4));
-                x+=(float)(delayed*echoWet);
-                float room=reverb.Process(x); x=(float)(x*(1-reverbWet*.25)+room*reverbWet);
+                if(chorusWet>0) {
+                    chorusPhase+=2*Math.PI*.72/SampleRate; if(chorusPhase>2*Math.PI) chorusPhase-=2*Math.PI;
+                    float doubled=(chorus.Read(SampleRate*(.014+.004*Math.Sin(chorusPhase)))+chorus.Read(SampleRate*(.021+.005*Math.Cos(chorusPhase*.83))))*.5f;
+                    chorus.Write(x); x=(float)(x*(1-chorusWet*.4)+doubled*chorusWet);
+                }
+                if(echoWet>0) {
+                    echoDelay=.9995*echoDelay+.0005*settings.EchoDelayMs*SampleRate/1000;
+                    float delayed=echo.Read(echoDelay); echo.Write(Math.Clamp(x+delayed*(float)echoFeedback,-4,4));
+                    x+=(float)(delayed*echoWet);
+                }
+                if(reverbWet>0) { float room=reverb.Process(x); x=(float)(x*(1-reverbWet*.25)+room*reverbWet); }
             }
             outGain=smooth*outGain+(1-smooth)*targetOut;
             double value=x*outGain;
             if(!double.IsFinite(value)) value=0;
-            double needed=Math.Abs(value)>.95 ? .95/Math.Abs(value) : 1;
-            limiterGain=needed<limiterGain ? needed : limiterRelease*limiterGain+(1-limiterRelease)*needed;
-            float result=Muted ? 0 : (float)Math.Clamp(value*limiterGain,-.95,.95);
+            if(settings.LimiterEnabled) {
+                double needed=Math.Abs(value)>.95 ? .95/Math.Abs(value) : 1;
+                limiterGain=needed<limiterGain ? needed : limiterRelease*limiterGain+(1-limiterRelease)*needed;
+                value=Math.Clamp(value*limiterGain,-.95,.95);
+            }
+            float result=Muted ? 0 : (float)Math.Clamp(value,-1,1);
             samples[i]=result; peak=Math.Max(peak,Math.Abs(result)); energy+=result*result;
         }
         OutputPeak=peak; OutputRms=(float)Math.Sqrt(energy/Math.Max(1,samples.Length));

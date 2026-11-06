@@ -90,6 +90,11 @@ Check("Gate passes speech above threshold",()=>{
     var output=Process(Neutral() with { GateEnabled=true,GateThreshold=-40 },Sine(220,2,.2f));
     Assert(Rms(output.Skip(Rate))>.1,"Gate swallowed voice");
 });
+Check("Quiet sustained speech below gate threshold is expanded instead of hard-muted",()=>{
+    var signal=Sine(230,2,.005f); var s=Neutral() with { GateEnabled=true,GateThreshold=-40,GateHoldMs=30,GateReleaseMs=50 };
+    double ratio=Rms(Process(s,signal).Skip(Rate))/Rms(Process(Neutral(),signal).Skip(Rate));
+    Assert(ratio>.12 && ratio<.8,$"Quiet tail level ratio: {ratio:F4}");
+});
 Check("Compressor reduces steady-state level",()=>{
     var signal=Sine(250,3,.7f);
     double dry=Rms(Process(Neutral(),signal).Skip(Rate));
@@ -172,6 +177,22 @@ Check("New modulation effects are independent of audio block boundaries",()=>{
     var signal=Sine(730,2);var a=Process(fx,signal,chunkSize:137);var b=Process(fx,signal,chunkSize:480);
     Assert(a.SequenceEqual(b),"Modulation depends on driver block size");
     Assert(!a.SequenceEqual(Process(Neutral(),signal)),"Effects had no effect");
+});
+Check("Studio chain can bypass each processor without erasing character or forcing gain reduction",()=>{
+    var s=new VoiceSettings { InputGain=0, OutputGain=0, Pitch=3,Tone=-20,RobotMix=16, GateThreshold=-12, HighpassHz=300, Mid=9,DeEsser=100,CompressorMakeup=12 };
+    var off=s.WithoutStudioProcessing();
+    Assert(!off.GateEnabled&&!off.CompressorEnabled&&!off.HighpassEnabled&&!off.EqualizerEnabled&&!off.DeEsserEnabled&&!off.LimiterEnabled,"Missing studio bypass");
+    Assert(off.Pitch==s.Pitch && off.RobotMix==s.RobotMix && off.Mid==9 && off.CompressorMakeup==12,"Lost editable settings");
+    var signal=Sine(480,2);
+    Assert(Process(off,signal).SequenceEqual(Process(off with { HighpassHz=20,Mid=-9,DeEsser=0,CompressorMakeup=0,GateThreshold=-72 },signal)),"Disabled processor changed audio");
+    var hot=Process(Neutral().WithoutStudioProcessing(),Sine(440,2,2));
+    Assert(hot.Max()>.99 && hot.All(x=>Math.Abs(x)<=1),"Unexpected limiter or invalid digital output");
+});
+Check("Compressor does not swell after a short speech gap",()=>{
+    var s=Neutral() with {CompressorEnabled=true,CompressorThreshold=-28,CompressorRatio=6,CompressorAttackMs=8,CompressorReleaseMs=100};
+    var source=Sine(200,2,.6f);Array.Clear(source,Rate,Rate*30/1000);var result=Process(s,source);
+    double before=Rms(result.Skip(Rate-Rate/50).Take(Rate/50)),after=Rms(result.Skip(Rate+Rate*30/1000).Take(Rate/50));
+    Assert(after/before<1.12 && after/before>.88,$"Swell across a 30 ms gap: {after/before:F3}");
 });
 Check("All new effects stream with bounded allocation and CPU time",()=>{
     var processor=new VoiceProcessor(Rate);processor.Apply(Neutral() with { Radio=true,CrushMix=80,TremoloMix=80,FlangerMix=80,Pitch=-5,RobotMix=70,ReverbMix=50,EchoMix=40,ChorusMix=40 });
